@@ -1,0 +1,35 @@
+services:
+  traefik:
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.local.yml:/traefik.yml:ro
+    labels:
+      - "traefik.enable=false"
+
+  server:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.server.rule=Host(`api.localhost`)"
+      - "traefik.http.routers.server.entrypoints=web"
+      - "traefik.http.routers.server.tls=false"
+      - "traefik.http.services.server.loadbalancer.server.port=50002"
+      - "traefik.docker.network=infra_traefik-public"
+    environment:
+      CORS_ORIGIN: http://localhost
+
+  web:
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.web.rule=Host(`localhost`)"
+      - "traefik.http.routers.web.entrypoints=web"
+      - "traefik.http.routers.web.tls=false"
+      - "traefik.http.services.web.loadbalancer.server.port=50001"
+    environment:
+      NEXT_PUBLIC_API_URL: http://api.localhost
+
+networks:
+  traefik-public:
+    external: false

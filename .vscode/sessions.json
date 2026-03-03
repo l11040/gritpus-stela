@@ -1,0 +1,62 @@
+{
+  "$schema": "https://cdn.statically.io/gh/nguyenngoclongdev/cdn/main/schema/v11/terminal-keeper.json",
+  "theme": "tribe",
+  "active": "default",
+  "activateOnStartup": true,
+  "keepExistingTerminals": false,
+  "sessions": {
+    "default": [
+      [
+        {
+          "name": "web:dev",
+          "autoExecuteCommands": true,
+          "icon": "globe",
+          "color": "terminal.ansiGreen",
+          "cwd": "apps/web",
+          "commands": ["until curl -sf http://localhost:50002/ >/dev/null 2>&1; do echo 'Waiting for API...'; sleep 1; done && pnpm dev"]
+        },
+        {
+          "name": "web:cmd",
+          "icon": "terminal",
+          "color": "terminal.ansiGreen",
+          "cwd": "apps/web",
+          "commands": []
+        }
+      ],
+      [
+        {
+          "name": "server:dev",
+          "autoExecuteCommands": true,
+          "icon": "server",
+          "color": "terminal.ansiMagenta",
+          "cwd": "apps/server",
+          "commands": ["pnpm dev"]
+        },
+        {
+          "name": "server:cmd",
+          "icon": "terminal",
+          "color": "terminal.ansiMagenta",
+          "cwd": "apps/server",
+          "commands": []
+        }
+      ],
+      [
+        {
+          "name": "desktop:dev",
+          "icon": "desktop-download",
+          "color": "terminal.ansiCyan",
+          "cwd": "apps/desktop",
+          "commands": []
+        }
+      ],
+      [
+        {
+          "name": "root",
+          "icon": "tools",
+          "color": "terminal.ansiYellow",
+          "commands": []
+        }
+      ]
+    ]
+  }
+}

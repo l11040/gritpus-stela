@@ -1,0 +1,30 @@
+{
+  "name": "gritpus-stela",
+  "private": true,
+  "scripts": {
+    "dev:server": "pnpm --filter @gritpus-stela/server dev",
+    "dev:web": "pnpm --filter @gritpus-stela/web dev",
+    "dev:desktop": "pnpm --filter @gritpus-stela/desktop dev",
+    "build": "turbo run build",
+    "build:server": "pnpm --filter @gritpus-stela/server build",
+    "build:web": "pnpm --filter @gritpus-stela/web build",
+    "build:desktop": "pnpm --filter @gritpus-stela/desktop build",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean",
+    "docker:dev": "docker compose -f infra/docker-compose.dev.yml up -d",
+    "docker:dev:down": "docker compose -f infra/docker-compose.dev.yml down",
+    "docker:local": "docker compose -f infra/docker-compose.yml -f infra/docker-compose.local.yml --env-file infra/.env.local up --build -d",
+    "docker:local:down": "docker compose -f infra/docker-compose.yml -f infra/docker-compose.local.yml --env-file infra/.env.local down"
+  },
+  "devDependencies": {
+    "turbo": "^2.4.0",
+    "typescript": "^5.7.0"
+  },
+  "packageManager": "pnpm@10.16.1",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@nestjs/core", "esbuild", "sharp"]
+  }
+}

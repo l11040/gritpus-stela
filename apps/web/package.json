@@ -1,0 +1,26 @@
+{
+  "name": "@gritpus-stela/web",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 50001",
+    "build": "next build",
+    "start": "next start --port 50001",
+    "lint": "next lint",
+    "clean": "rm -rf .next",
+    "generate:api": "orval"
+  },
+  "dependencies": {
+    "next": "^15.2.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@gritpus-stela/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "orval": "^7.6.0",
+    "typescript": "^5.7.0"
+  }
+}

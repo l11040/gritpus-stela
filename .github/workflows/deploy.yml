@@ -60,7 +60,7 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_PORT || 22 }}
-          source: "apps,packages,infra,package.json,pnpm-lock.yaml,pnpm-workspace.yaml"
+          source: "apps,packages,infra,package.json,pnpm-lock.yaml,pnpm-workspace.yaml,tsconfig.base.json,.dockerignore"
           target: "~/gritpus-stela"
           rm: false
 

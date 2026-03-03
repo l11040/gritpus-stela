@@ -16,7 +16,7 @@ entryPoints:
 certificatesResolvers:
   letsencrypt:
     acme:
-      email: "${ACME_EMAIL}"
+      email: "algo2000@naver.com"
       storage: /letsencrypt/acme.json
       httpChallenge:
         entryPoint: web

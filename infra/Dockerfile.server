@@ -23,6 +23,7 @@ COPY --from=builder /app/deploy/node_modules ./node_modules
 COPY --from=builder /app/apps/server/dist ./dist
 COPY --from=builder /app/packages/shared/dist ./node_modules/@gritpus-stela/shared/dist
 COPY --from=builder /app/packages/shared/package.json ./node_modules/@gritpus-stela/shared/package.json
+RUN mkdir -p /app/uploads
 
 ENV NODE_ENV=production
 EXPOSE 50002

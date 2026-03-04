@@ -66,8 +66,12 @@ services:
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_DATABASE: ${DB_DATABASE}
+      JWT_SECRET: ${JWT_SECRET}
       CORS_ORIGIN: http://${DOMAIN}
       DESKTOP_SERVICE_URL: http://desktop:50004
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - uploads-data:/app/uploads
     depends_on:
       mysql:
         condition: service_healthy
@@ -105,6 +109,7 @@ services:
 
 volumes:
   mysql-data:
+  uploads-data:
 
 networks:
   traefik-public:

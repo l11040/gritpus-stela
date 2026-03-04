@@ -34,6 +34,25 @@ services:
       timeout: 5s
       retries: 5
 
+  desktop:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.desktop
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 50004
+    volumes:
+      - ~/.claude:/root/.claude
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:50004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
   server:
     build:
       context: ..
@@ -48,8 +67,11 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       DB_DATABASE: ${DB_DATABASE}
       CORS_ORIGIN: http://${DOMAIN}
+      DESKTOP_SERVICE_URL: http://desktop:50004
     depends_on:
       mysql:
+        condition: service_healthy
+      desktop:
         condition: service_healthy
     networks:
       - traefik-public

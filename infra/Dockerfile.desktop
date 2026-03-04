@@ -1,0 +1,32 @@
+FROM node:22-alpine AS base
+RUN corepack enable && corepack prepare pnpm@10.16.1 --activate
+WORKDIR /app
+
+FROM base AS deps
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY apps/desktop/package.json apps/desktop/package.json
+COPY packages/shared/package.json packages/shared/package.json
+RUN pnpm install --frozen-lockfile
+
+FROM base AS builder
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/desktop/node_modules ./apps/desktop/node_modules
+COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
+COPY . .
+RUN pnpm --filter @gritpus-stela/shared build
+RUN pnpm --filter @gritpus-stela/desktop build
+RUN pnpm deploy --filter @gritpus-stela/desktop --prod --legacy /app/deploy
+
+FROM node:22-alpine AS runner
+WORKDIR /app
+
+RUN npm install -g @anthropic-ai/claude-code
+
+COPY --from=builder /app/deploy/node_modules ./node_modules
+COPY --from=builder /app/apps/desktop/dist ./dist
+COPY --from=builder /app/packages/shared/dist ./node_modules/@gritpus-stela/shared/dist
+COPY --from=builder /app/packages/shared/package.json ./node_modules/@gritpus-stela/shared/package.json
+
+ENV NODE_ENV=production
+EXPOSE 50004
+CMD ["node", "dist/main.js"]

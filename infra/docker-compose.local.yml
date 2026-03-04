@@ -9,7 +9,14 @@ services:
     labels:
       - "traefik.enable=false"
 
+  desktop:
+    volumes:
+      - ~/.claude:/root/.claude
+
   server:
+    environment:
+      CORS_ORIGIN: http://localhost
+      DESKTOP_SERVICE_URL: http://desktop:50004
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.server.rule=Host(`api.localhost`)"
@@ -17,8 +24,6 @@ services:
       - "traefik.http.routers.server.tls=false"
       - "traefik.http.services.server.loadbalancer.server.port=50002"
       - "traefik.docker.network=infra_traefik-public"
-    environment:
-      CORS_ORIGIN: http://localhost
 
   web:
     labels:

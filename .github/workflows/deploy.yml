@@ -14,6 +14,7 @@ jobs:
     outputs:
       server: ${{ steps.filter.outputs.server }}
       web: ${{ steps.filter.outputs.web }}
+      desktop: ${{ steps.filter.outputs.desktop }}
       infra: ${{ steps.filter.outputs.infra }}
     steps:
       - uses: actions/checkout@v4
@@ -28,12 +29,15 @@ jobs:
             web:
               - 'apps/web/**'
               - 'packages/shared/**'
+            desktop:
+              - 'apps/desktop/**'
+              - 'packages/shared/**'
             infra:
               - 'infra/**'
 
   deploy:
     needs: check-changes
-    if: ${{ needs.check-changes.outputs.server == 'true' || needs.check-changes.outputs.web == 'true' || needs.check-changes.outputs.infra == 'true' }}
+    if: ${{ needs.check-changes.outputs.server == 'true' || needs.check-changes.outputs.web == 'true' || needs.check-changes.outputs.desktop == 'true' || needs.check-changes.outputs.infra == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -104,6 +108,11 @@ jobs:
             if [ "${{ needs.check-changes.outputs.web }}" == "true" ]; then
               echo "Web changed. Adding to deploy list..."
               SERVICES_TO_DEPLOY="$SERVICES_TO_DEPLOY web"
+            fi
+
+            if [ "${{ needs.check-changes.outputs.desktop }}" == "true" ]; then
+              echo "Desktop changed. Adding to deploy list..."
+              SERVICES_TO_DEPLOY="$SERVICES_TO_DEPLOY desktop"
             fi
 
             # 변경된 서비스만 재배포

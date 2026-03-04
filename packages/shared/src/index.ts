@@ -16,3 +16,64 @@ export interface ChatErrorResponse {
   error: string;
   details?: string;
 }
+
+// ─── Auth ───
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  name: string;
+}
+
+export interface AuthResponse {
+  accessToken: string;
+  refreshToken: string;
+}
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  name: string;
+  profileImageUrl: string | null;
+}
+
+// ─── Project ───
+
+export enum ProjectRole {
+  OWNER = 'owner',
+  ADMIN = 'admin',
+  MEMBER = 'member',
+}
+
+// ─── Card ───
+
+export enum CardPriority {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+  URGENT = 'urgent',
+}
+
+// ─── Meeting ───
+
+export enum MeetingMinutesStatus {
+  UPLOADED = 'uploaded',
+  PARSING = 'parsing',
+  PARSED = 'parsed',
+  CONFIRMED = 'confirmed',
+  FAILED = 'failed',
+}
+
+export interface ParsedActionItem {
+  title: string;
+  description?: string;
+  assigneeName?: string;
+  priority?: CardPriority;
+  dueDate?: string;
+  suggestedLabels?: string[];
+}

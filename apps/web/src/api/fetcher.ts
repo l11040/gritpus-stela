@@ -1,3 +1,5 @@
+import { getAccessToken } from '@/lib/auth';
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:50002';
 
 export const fetcher = async <T>({
@@ -12,14 +14,21 @@ export const fetcher = async <T>({
   data?: unknown;
 }): Promise<T> => {
   const search = params ? `?${new URLSearchParams(params)}` : '';
+  const token = getAccessToken();
+  const headers: Record<string, string> = {};
+
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (data) headers['Content-Type'] = 'application/json';
+
   const response = await fetch(`${BASE_URL}${url}${search}`, {
     method,
-    headers: data ? { 'Content-Type': 'application/json' } : {},
+    headers,
     body: data ? JSON.stringify(data) : undefined,
   });
 
   if (!response.ok) {
-    throw new Error(`${response.status} ${response.statusText}`);
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || `${response.status} ${response.statusText}`);
   }
 
   return response.json() as Promise<T>;

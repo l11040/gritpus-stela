@@ -43,10 +43,11 @@
       [
         {
           "name": "desktop:dev",
+          "autoExecuteCommands": true,
           "icon": "desktop-download",
           "color": "terminal.ansiCyan",
           "cwd": "apps/desktop",
-          "commands": []
+          "commands": ["pnpm dev"]
         }
       ],
       [

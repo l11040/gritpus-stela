@@ -3,18 +3,21 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { MeetingController } from './meeting.controller';
 import { MeetingService } from './meeting.service';
 import { MeetingAiService } from './meeting-ai.service';
+import { MeetingAgentService } from './ai/meeting-agent.service';
 import { MeetingMinutes } from './entities/meeting-minutes.entity';
 import { BoardColumn } from '../board/entities/column.entity';
 import { DocumentModule } from '../document/document.module';
 import { BoardModule } from '../board/board.module';
+import { ProjectModule } from '../project/project.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([MeetingMinutes, BoardColumn]),
     DocumentModule,
     BoardModule,
+    ProjectModule,
   ],
   controllers: [MeetingController],
-  providers: [MeetingService, MeetingAiService],
+  providers: [MeetingService, MeetingAiService, MeetingAgentService],
 })
 export class MeetingModule {}

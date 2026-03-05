@@ -79,7 +79,10 @@ export class MeetingService {
     await this.meetingRepo.update(meetingId, { status: MeetingMinutesStatus.PARSING });
 
     try {
-      const result = await this.aiService.parseMinutes(meeting.rawContent);
+      const result = await this.aiService.parseMinutes(
+        meeting.projectId,
+        meeting.rawContent,
+      );
 
       await this.meetingRepo.update(meetingId, {
         parsedActionItems: result.actionItems as any,
@@ -132,6 +135,7 @@ export class MeetingService {
       description: item.description,
       priority: item.priority,
       columnId: targetColumn.id,
+      assigneeId: item.assigneeId,
       dueDate: item.dueDate,
     }));
 

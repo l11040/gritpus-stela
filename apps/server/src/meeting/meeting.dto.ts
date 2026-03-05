@@ -31,6 +31,11 @@ export class ParsedActionItemDto {
   @IsOptional()
   assigneeName?: string;
 
+  @ApiPropertyOptional({ description: '매핑된 담당자 ID' })
+  @IsUUID()
+  @IsOptional()
+  assigneeId?: string;
+
   @ApiPropertyOptional({ enum: CardPriority })
   @IsEnum(CardPriority)
   @IsOptional()

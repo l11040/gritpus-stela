@@ -88,3 +88,138 @@ pnpm dev:desktop   # Desktop 서비스 → http://localhost:50004
 | `pnpm docker:dev` | MySQL 컨테이너 실행 |
 | `pnpm docker:dev:down` | MySQL 컨테이너 중지 |
 | `pnpm --filter @gritpus-stela/web generate` | API 클라이언트 자동 생성 (서버 실행 필요) |
+
+## 회의록 AI 파싱 아키텍처
+
+회의록 원문에서 액션 아이템을 추출하고, 담당자를 매칭하고, 요약을 생성하는 파이프라인이다.
+
+### 전체 흐름
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Controller as MeetingController
+    participant Service as MeetingService
+    participant SSE as MeetingProgressService
+    participant Agent as MeetingAgentService
+    participant Resolver as AssigneeResolverService
+    participant Summary as MeetingSummaryService
+    participant LLM as DesktopLLM (Claude)
+    participant DB
+
+    Client->>Controller: POST /meetings/:id/parse
+    Controller->>Service: parseAsync(meetingId)
+    Service->>DB: status = PARSING
+    Service-->>Controller: 202 Accepted
+    Controller-->>Client: 즉시 응답
+
+    Client->>Controller: GET /meetings/:id/parse/events (SSE)
+    Controller->>SSE: subscribe(meetingId)
+
+    Note over Service: 백그라운드 실행 (fire-and-forget)
+
+    Service->>SSE: emit("started")
+    Service->>SSE: emit("analyzing")
+    Service->>Agent: parseMinutes(projectId, rawContent)
+
+    loop ReAct Loop (최대 8회, 300s 타임아웃)
+        Agent->>SSE: emit("agent_iteration", N/8)
+        Agent->>LLM: 프롬프트 + 스크래치패드
+        LLM-->>Agent: 응답 (Action 또는 Final Answer)
+        opt Tool 호출
+            Agent->>SSE: emit("agent_tool", toolName)
+            Agent->>Agent: Tool 실행 → Observation 추가
+        end
+    end
+
+    Agent-->>Service: ParsedMeetingResult (액션 아이템 + 요약)
+
+    Service->>SSE: emit("resolving_assignees")
+    Service->>Resolver: resolveWithLlm(actionItems, members)
+    Resolver->>LLM: 이름 → UUID 매칭 요청
+    LLM-->>Resolver: 매칭 결과
+    Resolver->>Resolver: Fuzzy Matcher 보정
+    Resolver-->>Service: 매칭된 액션 아이템
+    Service->>Service: normalizeActionItemsDueDates()
+
+    Service->>SSE: emit("summarizing")
+    Service->>Summary: summarize(title, rawContent, items)
+    Summary->>LLM: 8개 섹션 구조화 요약 요청
+    LLM-->>Summary: JSON 요약
+    Summary-->>Service: 렌더링된 요약 텍스트
+
+    Service->>DB: parsedActionItems, meetingSummary, status = PARSED
+    Service->>SSE: emit("completed")
+    SSE-->>Client: 실시간 이벤트 스트림
+```
+
+### ReAct Agent 그래프
+
+LangGraph 노드/엣지 구조. 커스텀 ReAct 루프로 구현되어 있다.
+
+```mermaid
+graph TD
+    __start__([__start__]) --> agent
+
+    agent["agent<br/><i>LLM 호출 (DesktopLLM → Claude)</i><br/>프롬프트 + scratchpad → 응답"]
+    agent --> should_continue{should_continue}
+
+    should_continue -- "Final Answer 감지" --> parse_output
+    should_continue -- "Action 감지" --> tools
+    should_continue -- "형식 오류 + JSON 추출 성공" --> parse_output
+    should_continue -- "형식 오류 + JSON 없음" --> error_feedback
+    should_continue -- "반복 >= 8" --> __error__
+
+    tools["tools<br/><i>StructuredTool 실행</i><br/>Observation → scratchpad 추가"]
+    tools --> agent
+
+    error_feedback["error_feedback<br/><i>형식 오류 피드백</i><br/>오류 메시지 → scratchpad 추가"]
+    error_feedback --> agent
+
+    parse_output["parse_output<br/><i>JSON 파싱</i><br/>응답 → ParsedMeetingResult"]
+    parse_output --> __end__
+
+    __end__([__end__])
+    __error__([__error__<br/>최대 반복 초과])
+
+    subgraph tools_available [StructuredTools]
+        T1[get_project_members]
+        T2[get_boards]
+        T3[get_board_details]
+        T4[get_cards]
+        T5[get_labels]
+    end
+```
+
+### 파싱 파이프라인 그래프
+
+전체 파싱은 순차 노드 체인으로 구성된다.
+
+```mermaid
+graph TD
+    __start__([__start__]) --> react_agent
+
+    react_agent["react_agent<br/><i>MeetingAgentService</i><br/>회의록 → 액션 아이템 + 요약 초안 추출"]
+    react_agent --> resolve_assignees
+
+    resolve_assignees["resolve_assignees<br/><i>AssigneeResolverService</i><br/>LLM 매칭 → Fuzzy Matcher 보정"]
+    resolve_assignees --> normalize_due_dates
+
+    normalize_due_dates["normalize_due_dates<br/><i>dueDateNormalizer</i><br/>상대 날짜 → 절대 날짜 변환"]
+    normalize_due_dates --> summarize
+
+    summarize["summarize<br/><i>MeetingSummaryService</i><br/>8개 섹션 구조화 요약 생성"]
+    summarize --> save_results
+
+    save_results["save_results<br/><i>DB 저장</i><br/>parsedActionItems + meetingSummary + status=PARSED"]
+    save_results --> __end__([__end__])
+```
+
+### 타임아웃 설정
+
+| 단계 | 타임아웃 | 실패 시 |
+|------|----------|---------|
+| Agent 전체 | 300초 | 에러 발생, status = FAILED |
+| LLM 호출 (Agent) | 180초 | 에러 전파 |
+| 담당자 매칭 LLM | 90초 | Fuzzy Matcher로 폴백 |
+| 회의 요약 LLM | 120초 | 기본 요약 텍스트 생성 |

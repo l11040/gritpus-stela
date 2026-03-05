@@ -82,8 +82,10 @@ services:
       - internal
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.server.rule=Host(`api.${DOMAIN}`)"
+      - "traefik.http.routers.server.rule=Host(`${DOMAIN}`) && PathPrefix(`/api`)"
       - "traefik.http.routers.server.entrypoints=web"
+      - "traefik.http.routers.server.middlewares=strip-api"
+      - "traefik.http.middlewares.strip-api.stripprefix.prefixes=/api"
       - "traefik.http.services.server.loadbalancer.server.port=50002"
       - "traefik.docker.network=traefik-public"
 
@@ -92,11 +94,11 @@ services:
       context: ..
       dockerfile: infra/Dockerfile.web
       args:
-        NEXT_PUBLIC_API_URL: http://api.${DOMAIN}
+        NEXT_PUBLIC_API_URL: /api
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      NEXT_PUBLIC_API_URL: http://api.${DOMAIN}
+      NEXT_PUBLIC_API_URL: /api
     depends_on:
       - server
     networks:

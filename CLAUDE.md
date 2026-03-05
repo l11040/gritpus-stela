@@ -82,7 +82,12 @@ pnpm docker:local                         # 전체 로컬 스택 실행
   - Service: 비즈니스 로직
   - Controller: Service만 호출한다.
 - TypeORM 엔티티는 각 모듈의 `entities/` 폴더에 위치한다.
-- 개발 환경에서는 `synchronize: true`로 스키마 자동 동기화한다.
+- **DB 스키마 변경은 반드시 migration 파일로 관리한다.**
+  - `synchronize: false`이며 `migrationsRun: true`로 서버 시작 시 자동 실행된다.
+  - migration 파일은 `apps/server/src/database/migrations/` 에 위치한다.
+  - 파일명 형식: `<timestamp>-<Description>.ts` (예: `1709500000001-ContentToLongtext.ts`)
+  - `docker exec`로 직접 ALTER TABLE 등을 실행하지 않는다. 반드시 migration 파일을 만든다.
+  - 엔티티 컬럼 타입을 변경할 때는 반드시 대응하는 migration 파일도 함께 만든다.
 
 ## 커밋 규칙
 

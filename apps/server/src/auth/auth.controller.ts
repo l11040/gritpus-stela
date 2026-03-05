@@ -26,35 +26,35 @@ const REFRESH_TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7일
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  private readonly isProduction: boolean;
+  private readonly secureCookie: boolean;
 
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
   ) {
-    this.isProduction = configService.get<string>('NODE_ENV') === 'production';
+    this.secureCookie = configService.get<string>('COOKIE_SECURE', 'false') === 'true';
   }
 
   private setAuthCookies(res: Response, accessToken: string, refreshToken: string) {
     res.cookie('access_token', accessToken, {
       httpOnly: true,
-      secure: this.isProduction,
+      secure: this.secureCookie,
       sameSite: 'lax',
       path: '/',
       maxAge: ACCESS_TOKEN_MAX_AGE,
     });
     res.cookie('refresh_token', refreshToken, {
       httpOnly: true,
-      secure: this.isProduction,
+      secure: this.secureCookie,
       sameSite: 'lax',
-      path: '/auth/refresh',
+      path: '/',
       maxAge: REFRESH_TOKEN_MAX_AGE,
     });
   }
 
   private clearAuthCookies(res: Response) {
     res.clearCookie('access_token', { path: '/' });
-    res.clearCookie('refresh_token', { path: '/auth/refresh' });
+    res.clearCookie('refresh_token', { path: '/' });
   }
 
   @Post('register')

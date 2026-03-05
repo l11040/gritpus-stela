@@ -9,6 +9,7 @@ import { ProjectModule } from './project/project.module';
 import { BoardModule } from './board/board.module';
 import { DocumentModule } from './document/document.module';
 import { MeetingModule } from './meeting/meeting.module';
+import { UploadModule } from './upload/upload.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { MeetingModule } from './meeting/meeting.module';
     BoardModule,
     DocumentModule,
     MeetingModule,
+    UploadModule,
   ],
   controllers: [AppController],
   providers: [AppService],

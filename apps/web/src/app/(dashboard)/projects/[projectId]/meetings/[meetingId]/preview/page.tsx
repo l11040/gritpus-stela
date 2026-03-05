@@ -7,13 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { X } from 'lucide-react';
 
 interface ActionItem {
   title: string;
   description?: string;
   assigneeName?: string;
+  assigneeId?: string;
   priority?: string;
   dueDate?: string;
 }
@@ -24,11 +25,18 @@ interface Board {
   columns: { id: string; name: string }[];
 }
 
+interface Member {
+  id: string;
+  userId: string;
+  user: { id: string; name: string; email: string };
+}
+
 export default function MeetingPreviewPage() {
   const { projectId, meetingId } = useParams<{ projectId: string; meetingId: string }>();
   const router = useRouter();
   const [items, setItems] = useState<ActionItem[]>([]);
   const [boards, setBoards] = useState<Board[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [selectedBoardId, setSelectedBoardId] = useState('');
   const [selectedColumnId, setSelectedColumnId] = useState('');
   const [loading, setLoading] = useState(false);
@@ -47,7 +55,39 @@ export default function MeetingPreviewPage() {
         if (data.length > 0) setSelectedBoardId(data[0].id);
       })
       .catch(() => {});
+
+    fetcher<Member[]>({ url: `/projects/${projectId}/members`, method: 'GET' })
+      .then((data) => setMembers(data))
+      .catch(() => {});
   }, [projectId, meetingId]);
+
+  // assigneeName이 있지만 assigneeId가 없는 항목을 멤버와 자동 매칭
+  useEffect(() => {
+    if (!members.length || !items.length) return;
+
+    const needsMatch = items.some((item) => item.assigneeName && !item.assigneeId);
+    if (!needsMatch) return;
+
+    setItems((prev) =>
+      prev.map((item) => {
+        if (!item.assigneeName || item.assigneeId) return item;
+
+        const name = item.assigneeName.trim().toLowerCase();
+        const matched = members.find((m) => {
+          const userName = m.user.name?.toLowerCase() || '';
+          const userEmail = m.user.email?.toLowerCase() || '';
+          return (
+            userName === name ||
+            userEmail === name ||
+            userName.includes(name) ||
+            name.includes(userName)
+          );
+        });
+
+        return matched ? { ...item, assigneeId: matched.userId } : item;
+      }),
+    );
+  }, [members, items.length]); // items.length로 최초 로드 시에만 트리거
 
   const selectedBoard = boards.find((b) => b.id === selectedBoardId);
 
@@ -64,14 +104,12 @@ export default function MeetingPreviewPage() {
     setLoading(true);
 
     try {
-      // 수정된 아이템 저장
       await fetcher({
         url: `/projects/${projectId}/meetings/${meetingId}/preview`,
         method: 'PATCH',
         data: { actionItems: items },
       });
 
-      // 확인 및 카드 생성
       const result = await fetcher<{ cardsCreated: number }>({
         url: `/projects/${projectId}/meetings/${meetingId}/confirm`,
         method: 'POST',
@@ -89,21 +127,24 @@ export default function MeetingPreviewPage() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <h1 className="text-2xl font-bold">액션 아이템 미리보기</h1>
-      <p className="text-muted-foreground">
-        아래 항목을 수정한 후 칸반 보드에 등록하세요.
-      </p>
+    <div className="max-w-3xl space-y-6">
+      <div>
+        <h2 className="text-base font-semibold">액션 아이템 미리보기</h2>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          아래 항목을 수정한 후 칸반 보드에 등록하세요.
+        </p>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">등록할 보드 선택</CardTitle>
-        </CardHeader>
-        <CardContent className="flex gap-4">
-          <div className="flex-1 space-y-2">
-            <Label>보드</Label>
+      {/* Board selection */}
+      <section>
+        <h3 className="mb-2 text-sm font-medium text-muted-foreground">등록할 보드</h3>
+        <div className="flex gap-3">
+          <div className="flex-1 space-y-1.5">
+            <Label className="text-xs">보드</Label>
             <Select value={selectedBoardId} onValueChange={setSelectedBoardId}>
-              <SelectTrigger><SelectValue placeholder="보드 선택" /></SelectTrigger>
+              <SelectTrigger className="h-8 text-sm">
+                <SelectValue placeholder="보드 선택" />
+              </SelectTrigger>
               <SelectContent>
                 {boards.map((b) => (
                   <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
@@ -112,10 +153,12 @@ export default function MeetingPreviewPage() {
             </Select>
           </div>
           {selectedBoard && (
-            <div className="flex-1 space-y-2">
-              <Label>컬럼 (선택)</Label>
+            <div className="flex-1 space-y-1.5">
+              <Label className="text-xs">컬럼 (선택)</Label>
               <Select value={selectedColumnId} onValueChange={setSelectedColumnId}>
-                <SelectTrigger><SelectValue placeholder="첫 번째 컬럼" /></SelectTrigger>
+                <SelectTrigger className="h-8 text-sm">
+                  <SelectValue placeholder="첫 번째 컬럼" />
+                </SelectTrigger>
                 <SelectContent>
                   {selectedBoard.columns.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
@@ -124,67 +167,86 @@ export default function MeetingPreviewPage() {
               </Select>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
-      <div className="space-y-4">
+      {/* Action items */}
+      <div className="space-y-3">
         {items.map((item, i) => (
-          <Card key={i}>
-            <CardContent className="space-y-3 pt-6">
-              <div className="flex items-start justify-between gap-2">
-                <Input
-                  value={item.title}
-                  onChange={(e) => updateItem(i, { title: e.target.value })}
-                  className="font-medium"
-                />
-                <Button variant="ghost" size="sm" onClick={() => removeItem(i)} className="text-destructive">
-                  삭제
-                </Button>
-              </div>
-              <Textarea
-                value={item.description || ''}
-                onChange={(e) => updateItem(i, { description: e.target.value })}
-                placeholder="설명"
-                className="text-sm"
+          <div key={i} className="rounded-md border px-4 py-3 space-y-2.5">
+            <div className="flex items-start gap-2">
+              <Input
+                value={item.title}
+                onChange={(e) => updateItem(i, { title: e.target.value })}
+                className="h-8 text-sm font-medium"
               />
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <Select
-                    value={item.priority || 'medium'}
-                    onValueChange={(v) => updateItem(i, { priority: v })}
-                  >
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="urgent">Urgent</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Input
-                  value={item.assigneeName || ''}
-                  onChange={(e) => updateItem(i, { assigneeName: e.target.value })}
-                  placeholder="담당자"
-                  className="h-8 flex-1 text-xs"
-                />
-                <Input
-                  type="date"
-                  value={item.dueDate || ''}
-                  onChange={(e) => updateItem(i, { dueDate: e.target.value })}
-                  className="h-8 flex-1 text-xs"
-                />
-              </div>
-            </CardContent>
-          </Card>
+              <button
+                onClick={() => removeItem(i)}
+                className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <Textarea
+              value={item.description || ''}
+              onChange={(e) => updateItem(i, { description: e.target.value })}
+              placeholder="설명"
+              rows={2}
+              className="text-sm"
+            />
+            <div className="flex gap-2">
+              <Select
+                value={item.priority || 'medium'}
+                onValueChange={(v) => updateItem(i, { priority: v })}
+              >
+                <SelectTrigger className="h-7 w-24 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">낮음</SelectItem>
+                  <SelectItem value="medium">보통</SelectItem>
+                  <SelectItem value="high">높음</SelectItem>
+                  <SelectItem value="urgent">긴급</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
+                value={item.assigneeId || '_none'}
+                onValueChange={(v) => {
+                  const member = members.find((m) => m.userId === v);
+                  updateItem(i, {
+                    assigneeId: v === '_none' ? undefined : v,
+                    assigneeName: member ? member.user.name : undefined,
+                  });
+                }}
+              >
+                <SelectTrigger className="h-7 flex-1 text-xs">
+                  <SelectValue placeholder="담당자" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">담당자 없음</SelectItem>
+                  {members.map((m) => (
+                    <SelectItem key={m.userId} value={m.userId}>
+                      {m.user.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                type="date"
+                value={item.dueDate || ''}
+                onChange={(e) => updateItem(i, { dueDate: e.target.value })}
+                className="h-7 flex-1 text-xs"
+              />
+            </div>
+          </div>
         ))}
       </div>
 
       <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={() => router.back()}>
+        <Button variant="ghost" size="sm" onClick={() => router.back()}>
           취소
         </Button>
-        <Button onClick={handleConfirm} disabled={loading || !selectedBoardId || items.length === 0}>
+        <Button size="sm" onClick={handleConfirm} disabled={loading || !selectedBoardId || items.length === 0}>
           {loading ? '등록 중...' : `${items.length}개 카드 생성`}
         </Button>
       </div>

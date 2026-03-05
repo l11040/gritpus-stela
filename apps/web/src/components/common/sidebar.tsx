@@ -4,13 +4,58 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/providers/auth-provider';
-import { Button } from '@/components/ui/button';
 import { fetcher } from '@/api/fetcher';
 import { cn } from '@/lib/utils';
+import {
+  LayoutDashboard,
+  Shield,
+  Plus,
+  LogOut,
+  Hash,
+} from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface Project {
   id: string;
   name: string;
+}
+
+function NavItem({
+  href,
+  icon: Icon,
+  label,
+  active,
+}: {
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  active: boolean;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Link
+          href={href}
+          className={cn(
+            'flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-all duration-150',
+            active
+              ? 'bg-muted font-medium text-foreground'
+              : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+          )}
+        >
+          <Icon className="size-4 shrink-0" />
+          <span className="truncate">{label}</span>
+        </Link>
+      </TooltipTrigger>
+      <TooltipContent side="right" className="text-xs">
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  );
 }
 
 export function Sidebar() {
@@ -25,72 +70,86 @@ export function Sidebar() {
   }, []);
 
   return (
-    <aside className="flex w-64 flex-col border-r bg-card">
-      <div className="border-b p-4">
-        <Link href="/dashboard" className="text-lg font-bold">
+    <aside className="flex w-60 shrink-0 flex-col bg-sidebar">
+      {/* Header */}
+      <div className="flex h-12 items-center px-4">
+        <Link
+          href="/dashboard"
+          className="text-sm font-semibold tracking-tight text-foreground"
+        >
           Gritpus Stela
         </Link>
       </div>
 
-      <nav className="flex-1 space-y-1 overflow-auto p-3">
-        <Link
+      {/* Navigation */}
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-1">
+        <NavItem
           href="/dashboard"
-          className={cn(
-            'block rounded-md px-3 py-2 text-sm',
-            pathname === '/dashboard'
-              ? 'bg-primary text-primary-foreground'
-              : 'hover:bg-muted',
-          )}
-        >
-          대시보드
-        </Link>
+          icon={LayoutDashboard}
+          label="대시보드"
+          active={pathname === '/dashboard'}
+        />
 
         {user?.role === 'admin' && (
-          <Link
+          <NavItem
             href="/admin/users"
-            className={cn(
-              'block rounded-md px-3 py-2 text-sm',
-              pathname.startsWith('/admin')
-                ? 'bg-primary text-primary-foreground'
-                : 'hover:bg-muted',
-            )}
-          >
-            사용자 관리
-          </Link>
+            icon={Shield}
+            label="사용자 관리"
+            active={pathname.startsWith('/admin')}
+          />
         )}
 
-        <div className="pt-4">
-          <div className="flex items-center justify-between px-3 pb-2">
-            <span className="text-xs font-semibold text-muted-foreground uppercase">프로젝트</span>
-            <Link href="/projects/new">
-              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
-                + 새 프로젝트
-              </Button>
-            </Link>
-          </div>
-          {projects.map((project) => (
+        {/* Divider */}
+        <div className="my-3! h-px bg-border" />
+
+        {/* Projects section */}
+        <div className="flex items-center justify-between px-2.5 pb-1">
+          <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            프로젝트
+          </span>
+          <Link
+            href="/projects/new"
+            className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+          >
+            <Plus className="size-3.5" />
+          </Link>
+        </div>
+
+        {projects.map((project) => {
+          const isActive = pathname.startsWith(`/projects/${project.id}`);
+          return (
             <Link
               key={project.id}
               href={`/projects/${project.id}`}
               className={cn(
-                'block rounded-md px-3 py-2 text-sm truncate',
-                pathname.startsWith(`/projects/${project.id}`)
-                  ? 'bg-primary text-primary-foreground'
-                  : 'hover:bg-muted',
+                'flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-all duration-150',
+                isActive
+                  ? 'bg-muted font-medium text-foreground'
+                  : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
               )}
             >
-              {project.name}
+              <Hash className="size-3.5 shrink-0" />
+              <span className="truncate">{project.name}</span>
             </Link>
-          ))}
-        </div>
+          );
+        })}
       </nav>
 
-      <div className="border-t p-3">
-        <div className="flex items-center gap-2 px-3 py-2">
-          <div className="flex-1 truncate text-sm">{user?.name}</div>
-          <Button variant="ghost" size="sm" onClick={logout} className="text-xs">
-            로그아웃
-          </Button>
+      {/* Footer */}
+      <div className="border-t border-border p-2">
+        <div className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5">
+          <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
+            {user?.name?.[0] || '?'}
+          </div>
+          <span className="flex-1 truncate text-sm text-foreground">
+            {user?.name}
+          </span>
+          <button
+            onClick={logout}
+            className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+          >
+            <LogOut className="size-3.5" />
+          </button>
         </div>
       </div>
     </aside>

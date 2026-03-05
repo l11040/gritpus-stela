@@ -6,7 +6,6 @@ import { fetcher } from '@/api/fetcher';
 import { useAuth } from '@/providers/auth-provider';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -14,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { AlertCircle } from 'lucide-react';
 
 interface AdminUser {
   id: string;
@@ -93,32 +93,34 @@ export default function AdminUsersPage() {
   const approvedUsers = users.filter((u) => u.isApproved);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <h1 className="text-2xl font-bold">사용자 관리</h1>
+    <div className="max-w-3xl space-y-8">
+      <h1 className="text-lg font-semibold">사용자 관리</h1>
 
+      {/* Pending */}
       {pendingUsers.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
+        <section>
+          <div className="mb-2 flex items-center gap-2">
+            <AlertCircle className="size-4 text-amber-500" />
+            <h2 className="text-sm font-medium">
               승인 대기 ({pendingUsers.length}명)
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+            </h2>
+          </div>
+          <div className="space-y-1">
             {pendingUsers.map((u) => (
               <div
                 key={u.id}
-                className="flex items-center justify-between rounded-md border border-yellow-200 bg-yellow-50 p-3 dark:border-yellow-900 dark:bg-yellow-950"
+                className="flex items-center justify-between rounded-md border border-amber-200 bg-amber-50/50 px-3 py-2.5 dark:border-amber-900 dark:bg-amber-950/30"
               >
                 <div>
-                  <div className="font-medium">{u.name}</div>
-                  <div className="text-sm text-muted-foreground">{u.email}</div>
+                  <div className="text-sm font-medium">{u.name}</div>
                   <div className="text-xs text-muted-foreground">
-                    {new Date(u.createdAt).toLocaleDateString('ko-KR')} 가입
+                    {u.email} · {new Date(u.createdAt).toLocaleDateString('ko-KR')}
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-1.5">
                   <Button
                     size="sm"
+                    className="h-7 text-xs"
                     onClick={() => handleApprove(u.id, true)}
                     disabled={loading[u.id]}
                   >
@@ -126,7 +128,8 @@ export default function AdminUsersPage() {
                   </Button>
                   <Button
                     size="sm"
-                    variant="destructive"
+                    variant="ghost"
+                    className="h-7 text-xs text-destructive hover:text-destructive"
                     onClick={() => handleDelete(u.id)}
                     disabled={loading[u.id]}
                   >
@@ -135,40 +138,45 @@ export default function AdminUsersPage() {
                 </div>
               </div>
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            전체 사용자 ({approvedUsers.length}명)
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      {/* Approved */}
+      <section>
+        <h2 className="mb-2 text-sm font-medium text-muted-foreground">
+          전체 사용자 ({approvedUsers.length}명)
+        </h2>
+        <div className="space-y-1">
           {approvedUsers.map((u) => (
             <div
               key={u.id}
-              className="flex items-center justify-between rounded-md border p-3"
+              className="flex items-center justify-between rounded-md px-3 py-2.5 transition-colors hover:bg-muted/40"
             >
               <div className="flex items-center gap-3">
-                <div>
-                  <div className="font-medium">{u.name}</div>
-                  <div className="text-sm text-muted-foreground">{u.email}</div>
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
+                  {u.name[0]}
                 </div>
-                <Badge variant={u.role === 'admin' ? 'default' : 'secondary'}>
+                <div>
+                  <div className="text-sm font-medium">{u.name}</div>
+                  <div className="text-xs text-muted-foreground">{u.email}</div>
+                </div>
+                <Badge
+                  variant={u.role === 'admin' ? 'default' : 'secondary'}
+                  className="text-[10px]"
+                >
                   {u.role}
                 </Badge>
               </div>
-              <div className="flex items-center gap-2">
-                {u.id !== user?.id && (
+              <div className="flex items-center gap-1.5">
+                {u.id !== user?.id ? (
                   <>
                     <Select
                       value={u.role}
                       onValueChange={(v) => handleRoleChange(u.id, v)}
                       disabled={loading[u.id]}
                     >
-                      <SelectTrigger className="h-8 w-24 text-xs">
+                      <SelectTrigger className="h-7 w-20 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -178,7 +186,8 @@ export default function AdminUsersPage() {
                     </Select>
                     <Button
                       size="sm"
-                      variant="outline"
+                      variant="ghost"
+                      className="h-7 text-xs"
                       onClick={() => handleApprove(u.id, false)}
                       disabled={loading[u.id]}
                     >
@@ -186,22 +195,22 @@ export default function AdminUsersPage() {
                     </Button>
                     <Button
                       size="sm"
-                      variant="destructive"
+                      variant="ghost"
+                      className="h-7 text-xs text-destructive hover:text-destructive"
                       onClick={() => handleDelete(u.id)}
                       disabled={loading[u.id]}
                     >
                       삭제
                     </Button>
                   </>
-                )}
-                {u.id === user?.id && (
+                ) : (
                   <span className="text-xs text-muted-foreground">나</span>
                 )}
               </div>
             </div>
           ))}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   );
 }

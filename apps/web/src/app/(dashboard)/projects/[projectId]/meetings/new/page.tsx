@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { RichEditor } from '@/components/common/rich-editor';
+import { Upload } from 'lucide-react';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:50002';
 
@@ -17,6 +17,7 @@ export default function NewMeetingPage() {
   const [rawContent, setRawContent] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,45 +45,55 @@ export default function NewMeetingPage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <Card>
-        <CardHeader>
-          <CardTitle>새 회의록</CardTitle>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>제목</Label>
-              <Input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="2024-03-04 주간 회의"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>회의록 내용 (직접 입력)</Label>
-              <Textarea
-                value={rawContent}
-                onChange={(e) => setRawContent(e.target.value)}
-                placeholder="회의록 내용을 여기에 붙여넣으세요..."
-                className="min-h-[200px]"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>또는 파일 업로드</Label>
-              <Input
-                type="file"
-                accept=".txt,.md,.pdf,.docx"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? '업로드 중...' : '회의록 등록'}
-            </Button>
-          </CardContent>
-        </form>
-      </Card>
+    <div className="max-w-2xl space-y-4">
+      <h2 className="text-base font-semibold">새 회의록</h2>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-1.5">
+          <Label className="text-sm">제목</Label>
+          <Input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="2024-03-04 주간 회의"
+            required
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-sm">회의록 내용 (직접 입력)</Label>
+          <RichEditor
+            defaultValue=""
+            onChange={setRawContent}
+            placeholder="회의록 내용을 여기에 붙여넣으세요..."
+            className="min-h-50"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-sm">또는 파일 업로드</Label>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".txt,.md,.pdf,.docx"
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex w-full items-center justify-center gap-2 rounded-md border border-dashed px-4 py-6 text-sm text-muted-foreground transition-colors hover:bg-muted/40"
+          >
+            <Upload className="size-4" />
+            {file ? file.name : '클릭하여 파일 선택 (.txt, .md, .pdf, .docx)'}
+          </button>
+        </div>
+        <div className="flex gap-2">
+          <Button type="submit" size="sm" disabled={loading}>
+            {loading ? '업로드 중...' : '회의록 등록'}
+          </Button>
+          <Button type="button" variant="ghost" size="sm" onClick={() => router.back()}>
+            취소
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }

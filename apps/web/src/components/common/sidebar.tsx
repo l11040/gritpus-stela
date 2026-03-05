@@ -12,6 +12,8 @@ import {
   Plus,
   LogOut,
   Hash,
+  PanelLeftClose,
+  PanelLeft,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -58,7 +60,13 @@ function NavItem({
   );
 }
 
-export function Sidebar() {
+export function Sidebar({
+  collapsed,
+  onToggle,
+}: {
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -69,16 +77,112 @@ export function Sidebar() {
       .catch(() => {});
   }, []);
 
+  if (collapsed) {
+    return (
+      <aside className="flex w-12 shrink-0 flex-col border-r border-border bg-sidebar">
+        <div className="flex h-12 items-center justify-center">
+          <button
+            onClick={onToggle}
+            className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+          >
+            <PanelLeft className="size-4" />
+          </button>
+        </div>
+
+        <nav className="flex flex-1 flex-col items-center gap-1 overflow-y-auto py-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                href="/dashboard"
+                className={cn(
+                  'rounded-md p-2 transition-all duration-150',
+                  pathname === '/dashboard'
+                    ? 'bg-muted text-foreground'
+                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+                )}
+              >
+                <LayoutDashboard className="size-4" />
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="text-xs">대시보드</TooltipContent>
+          </Tooltip>
+
+          {user?.role === 'admin' && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  href="/admin/users"
+                  className={cn(
+                    'rounded-md p-2 transition-all duration-150',
+                    pathname.startsWith('/admin')
+                      ? 'bg-muted text-foreground'
+                      : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+                  )}
+                >
+                  <Shield className="size-4" />
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="text-xs">사용자 관리</TooltipContent>
+            </Tooltip>
+          )}
+
+          <div className="my-1 h-px w-6 bg-border" />
+
+          {projects.map((project) => {
+            const isActive = pathname.startsWith(`/projects/${project.id}`);
+            return (
+              <Tooltip key={project.id}>
+                <TooltipTrigger asChild>
+                  <Link
+                    href={`/projects/${project.id}`}
+                    className={cn(
+                      'rounded-md p-2 transition-all duration-150',
+                      isActive
+                        ? 'bg-muted text-foreground'
+                        : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+                    )}
+                  >
+                    <Hash className="size-3.5" />
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="text-xs">{project.name}</TooltipContent>
+              </Tooltip>
+            );
+          })}
+        </nav>
+
+        <div className="border-t border-border p-1.5">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center justify-center">
+                <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
+                  {user?.name?.[0] || '?'}
+                </div>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="text-xs">{user?.name}</TooltipContent>
+          </Tooltip>
+        </div>
+      </aside>
+    );
+  }
+
   return (
     <aside className="flex w-60 shrink-0 flex-col bg-sidebar">
       {/* Header */}
-      <div className="flex h-12 items-center px-4">
+      <div className="flex h-12 items-center justify-between px-4">
         <Link
           href="/dashboard"
           className="text-sm font-semibold tracking-tight text-foreground"
         >
           Gritpus Stela
         </Link>
+        <button
+          onClick={onToggle}
+          className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+        >
+          <PanelLeftClose className="size-4" />
+        </button>
       </div>
 
       {/* Navigation */}

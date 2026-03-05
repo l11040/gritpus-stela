@@ -71,7 +71,7 @@ export default function NewMeetingPage() {
   };
 
   return (
-    <div className="max-w-2xl space-y-4">
+    <div className="max-w-2xl space-y-4 px-6 pt-5 pb-6">
       <h2 className="text-base font-semibold">새 회의록</h2>
 
       <form onSubmit={handleSubmit} className="space-y-4">

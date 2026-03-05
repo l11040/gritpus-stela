@@ -86,7 +86,7 @@ export default function ProjectSettingsPage() {
   };
 
   return (
-    <div className="max-w-2xl space-y-8">
+    <div className="max-w-2xl space-y-8 px-6 pt-5 pb-6">
       {/* Invite */}
       <section>
         <h2 className="mb-3 text-sm font-medium text-muted-foreground">멤버 초대</h2>

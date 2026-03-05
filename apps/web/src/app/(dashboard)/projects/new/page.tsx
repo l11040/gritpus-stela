@@ -31,7 +31,7 @@ export default function NewProjectPage() {
   };
 
   return (
-    <div className="max-w-lg space-y-4">
+    <div className="max-w-lg space-y-4 px-6 pt-4 pb-6">
       <div className="text-sm text-muted-foreground">
         <Link href="/dashboard" className="transition-colors hover:text-foreground">
           대시보드

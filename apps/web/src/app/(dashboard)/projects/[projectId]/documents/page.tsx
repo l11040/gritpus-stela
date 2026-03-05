@@ -102,7 +102,7 @@ export default function DocumentsPage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-6 pt-5 pb-6">
       <div className="flex items-center justify-end">
         <input
           ref={fileInputRef}

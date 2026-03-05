@@ -75,7 +75,7 @@ export default function MeetingDetailPage() {
     meeting.status === 'failed' ? '다시 시도' : 'AI로 액션 아이템 추출';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-6 pt-5 pb-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

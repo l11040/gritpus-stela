@@ -18,7 +18,7 @@ export default function BoardsIndexPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
+      <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
         <Kanban className="mb-2 size-8 text-muted-foreground/40" />
         <p className="text-sm text-muted-foreground">
           보드를 불러오는 중입니다
@@ -29,7 +29,7 @@ export default function BoardsIndexPage() {
 
   if (project?.boards?.length === 0 || !project) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
+      <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
         <Kanban className="mb-2 size-8 text-muted-foreground/40" />
         <p className="text-sm text-muted-foreground">
           보드를 선택하거나 새로 만드세요

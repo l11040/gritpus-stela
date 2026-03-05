@@ -190,3 +190,99 @@
   @apply pointer-events-none float-left h-0 text-muted-foreground;
   content: attr(data-placeholder);
 }
+
+/* Task list (checklist) */
+.ProseMirror ul[data-type="taskList"] {
+  @apply list-none pl-0;
+}
+.ProseMirror ul[data-type="taskList"] li {
+  @apply flex items-start gap-2;
+}
+.ProseMirror ul[data-type="taskList"] li > label {
+  @apply mt-0.5;
+}
+.ProseMirror ul[data-type="taskList"] li > label input[type="checkbox"] {
+  @apply h-4 w-4 cursor-pointer rounded border border-input accent-primary;
+}
+.ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div > p {
+  @apply line-through text-muted-foreground;
+}
+
+/* Image */
+.ProseMirror img {
+  @apply my-2 max-w-full rounded-md border;
+}
+.ProseMirror .editor-image-node {
+  @apply relative my-2 inline-block max-w-full;
+}
+.ProseMirror .editor-image-node__img {
+  @apply block max-w-full rounded-md border;
+}
+.ProseMirror .editor-image-node__handle {
+  @apply absolute top-1/2 z-10 h-12 w-6 -translate-y-1/2 cursor-ew-resize opacity-0 transition-opacity;
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+.ProseMirror .editor-image-node__handle::before {
+  content: '';
+  display: block;
+  width: 3px;
+  height: 22px;
+  margin: 0 auto;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--foreground) 24%, transparent);
+  transition: background-color 120ms ease, transform 120ms ease;
+}
+.ProseMirror .editor-image-node.ProseMirror-selectednode > .editor-image-node__handle {
+  @apply opacity-100;
+}
+.ProseMirror .editor-image-node__handle:hover {
+  @apply opacity-100;
+}
+.ProseMirror .editor-image-node__handle:hover::before {
+  background: var(--primary);
+}
+.ProseMirror .editor-image-node__handle:active::before {
+  transform: scaleX(1.2);
+}
+.ProseMirror .editor-image-node__handle--left {
+  @apply left-0 -translate-x-1/2;
+}
+.ProseMirror .editor-image-node__handle--right {
+  @apply right-0 translate-x-1/2;
+}
+
+/* Link */
+.ProseMirror a {
+  @apply text-primary underline underline-offset-4 cursor-pointer;
+}
+
+/* Highlight */
+.ProseMirror mark {
+  @apply rounded-sm px-0.5;
+}
+
+/* Drag handle */
+.drag-handle {
+  @apply fixed flex cursor-grab items-center justify-center rounded opacity-0 transition-opacity;
+  width: 24px;
+  height: 28px;
+}
+.drag-handle:hover,
+.drag-handle.show {
+  @apply opacity-100;
+}
+.drag-handle::after {
+  content: "⠿";
+  @apply text-sm text-muted-foreground;
+}
+
+/* Scrollbar hide utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

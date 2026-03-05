@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/providers/auth-provider';
 import { Sidebar } from '@/components/common/sidebar';
@@ -10,6 +10,7 @@ import { ParseProgressTracker } from '@/features/meeting/components/parse-progre
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -30,11 +31,9 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   return (
     <ParseProgressProvider>
       <div className="flex h-screen">
-        <Sidebar />
+        <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
         <main className="flex flex-1 flex-col overflow-auto">
-          <div className="flex min-h-0 flex-1 flex-col px-8 pt-6">
-            {children}
-          </div>
+          {children}
         </main>
       </div>
       <ParseProgressTracker />

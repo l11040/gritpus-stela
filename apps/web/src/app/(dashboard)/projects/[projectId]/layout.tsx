@@ -32,64 +32,68 @@ export default function ProjectLayout({
   const { project, isLoading } = useProject(projectId);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-5 pb-6">
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink asChild>
-              <Link href="/dashboard">대시보드</Link>
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            {isLoading ? (
-              <Skeleton className="h-4 w-24" />
-            ) : (
-              <BreadcrumbPage>{project?.name}</BreadcrumbPage>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="space-y-5 px-6 pt-4">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link href="/dashboard">대시보드</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              {isLoading ? (
+                <Skeleton className="h-4 w-24" />
+              ) : (
+                <BreadcrumbPage>{project?.name}</BreadcrumbPage>
+              )}
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+
+        {isLoading ? (
+          <div className="space-y-1.5">
+            <Skeleton className="h-7 w-48" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+        ) : (
+          <header className="space-y-1">
+            <h1 className="text-xl font-semibold tracking-tight">
+              {project?.name}
+            </h1>
+            {project?.description && (
+              <p className="text-sm text-muted-foreground">
+                {project.description}
+              </p>
             )}
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
+          </header>
+        )}
+      </div>
 
-      {isLoading ? (
-        <div className="space-y-1.5">
-          <Skeleton className="h-7 w-48" />
-          <Skeleton className="h-4 w-64" />
+      <div className="mt-5 border-b border-border">
+        <div className="flex gap-1 overflow-x-auto px-6 scrollbar-hide">
+          {TABS.map((tab) => {
+            const isActive = segment === tab.key;
+            return (
+              <Link
+                key={tab.label}
+                href={`/projects/${projectId}${tab.href}`}
+                className={cn(
+                  'relative shrink-0 whitespace-nowrap px-3 py-2 text-sm transition-colors',
+                  isActive
+                    ? 'font-medium text-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {tab.label}
+                {isActive && (
+                  <span className="absolute inset-x-0 bottom-0 h-0.5 bg-foreground" />
+                )}
+              </Link>
+            );
+          })}
         </div>
-      ) : (
-        <header className="space-y-1">
-          <h1 className="text-xl font-semibold tracking-tight">
-            {project?.name}
-          </h1>
-          {project?.description && (
-            <p className="text-sm text-muted-foreground">
-              {project.description}
-            </p>
-          )}
-        </header>
-      )}
-
-      <div className="flex gap-1 border-b border-border">
-        {TABS.map((tab) => {
-          const isActive = segment === tab.key;
-          return (
-            <Link
-              key={tab.label}
-              href={`/projects/${projectId}${tab.href}`}
-              className={cn(
-                'relative px-3 py-2 text-sm transition-colors',
-                isActive
-                  ? 'font-medium text-foreground'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {tab.label}
-              {isActive && (
-                <span className="absolute inset-x-0 bottom-0 h-0.5 bg-foreground" />
-              )}
-            </Link>
-          );
-        })}
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col">

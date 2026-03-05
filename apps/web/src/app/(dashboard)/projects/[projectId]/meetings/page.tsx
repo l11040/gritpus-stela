@@ -65,7 +65,7 @@ export default function MeetingsPage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-6 pt-5 pb-6">
       <div className="flex items-center justify-end">
         <Link href={`/projects/${projectId}/meetings/new`}>
           <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs text-muted-foreground">

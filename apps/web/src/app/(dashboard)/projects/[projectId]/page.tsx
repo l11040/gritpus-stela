@@ -17,7 +17,7 @@ export default function ProjectPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 px-6 pt-5">
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-20 rounded-md" />
@@ -30,7 +30,7 @@ export default function ProjectPage() {
   if (!project) return null;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 px-6 pt-5 pb-6">
       {/* Boards */}
       <section>
         <div className="mb-3 flex items-center justify-between">

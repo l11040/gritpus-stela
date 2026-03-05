@@ -27,7 +27,7 @@ export class Card {
   @Column()
   title: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'longtext', nullable: true })
   description: string;
 
   @Column({ type: 'enum', enum: CardPriority, default: CardPriority.MEDIUM })

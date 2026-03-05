@@ -26,7 +26,7 @@ export class MeetingMinutes {
   @Column()
   title: string;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'longtext', nullable: true })
   rawContent: string;
 
   @Column({ type: 'json', nullable: true })

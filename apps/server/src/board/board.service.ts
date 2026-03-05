@@ -187,19 +187,59 @@ export class BoardService {
   }
 
   async moveCard(cardId: string, dto: MoveCardDto): Promise<Card> {
-    await this.cardRepo.update(cardId, {
-      columnId: dto.columnId,
-      position: dto.position,
-    });
+    await this.cardRepo.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(Card);
+      const movingCard = await repo.findOne({ where: { id: cardId } });
+      if (!movingCard) {
+        throw new NotFoundException('카드를 찾을 수 없습니다.');
+      }
 
-    // 대상 컬럼의 다른 카드 위치 재정렬
-    const cards = await this.cardRepo.find({
-      where: { columnId: dto.columnId },
-      order: { position: 'ASC' },
+      const sourceColumnId = movingCard.columnId;
+      const targetColumnId = dto.columnId;
+
+      const sourceCards = await repo.find({
+        where: { columnId: sourceColumnId },
+        order: { position: 'ASC', createdAt: 'ASC' },
+      });
+      const sourceIndex = sourceCards.findIndex((card) => card.id === cardId);
+      if (sourceIndex < 0) {
+        throw new NotFoundException('카드를 찾을 수 없습니다.');
+      }
+
+      const [cardToMove] = sourceCards.splice(sourceIndex, 1);
+      if (!cardToMove) {
+        throw new NotFoundException('카드를 찾을 수 없습니다.');
+      }
+
+      if (sourceColumnId === targetColumnId) {
+        const targetIndex = Math.min(Math.max(dto.position, 0), sourceCards.length);
+        sourceCards.splice(targetIndex, 0, cardToMove);
+
+        await Promise.all(
+          sourceCards.map((card, index) => repo.update(card.id, { position: index })),
+        );
+        return;
+      }
+
+      const targetCards = await repo.find({
+        where: { columnId: targetColumnId },
+        order: { position: 'ASC', createdAt: 'ASC' },
+      });
+      const targetIndex = Math.min(Math.max(dto.position, 0), targetCards.length);
+      targetCards.splice(targetIndex, 0, cardToMove);
+
+      await Promise.all([
+        ...sourceCards.map((card, index) =>
+          repo.update(card.id, { position: index }),
+        ),
+        ...targetCards.map((card, index) =>
+          repo.update(card.id, {
+            columnId: targetColumnId,
+            position: index,
+          }),
+        ),
+      ]);
     });
-    await Promise.all(
-      cards.map((card, index) => this.cardRepo.update(card.id, { position: index })),
-    );
 
     return this.getCard(cardId);
   }

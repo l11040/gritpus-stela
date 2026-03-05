@@ -44,7 +44,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-6">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">대시보드</h1>
         <Link href="/projects/new">

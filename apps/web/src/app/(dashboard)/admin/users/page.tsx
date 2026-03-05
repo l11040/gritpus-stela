@@ -93,7 +93,7 @@ export default function AdminUsersPage() {
   const approvedUsers = users.filter((u) => u.isApproved);
 
   return (
-    <div className="max-w-3xl space-y-8">
+    <div className="max-w-3xl space-y-8 pb-6">
       <h1 className="text-lg font-semibold">사용자 관리</h1>
 
       {/* Pending */}

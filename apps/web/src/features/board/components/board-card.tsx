@@ -12,9 +12,10 @@ interface BoardCardProps {
   card: CardItem;
   columnId: string;
   onEdit: (card: CardItem) => void;
+  isSelected?: boolean;
 }
 
-export function BoardCard({ card, columnId, onEdit }: BoardCardProps) {
+export function BoardCard({ card, columnId, onEdit, isSelected = false }: BoardCardProps) {
   const {
     attributes,
     listeners,
@@ -34,39 +35,50 @@ export function BoardCard({ card, columnId, onEdit }: BoardCardProps) {
   const dueDateLabel = formatCardDate(card.dueDate);
   const createdDateLabel = formatCardDate(card.createdAt);
   const dateLabel = dueDateLabel ?? createdDateLabel;
+  const assignees =
+    card.assignees?.length
+      ? card.assignees
+      : card.assignee
+        ? [card.assignee]
+        : [];
+  const extraAssigneeCount = Math.max(assignees.length - 3, 0);
 
   return (
     <div
       ref={setNodeRef}
       style={style}
+      data-board-card="true"
+      data-board-card-id={card.id}
       className={cn(
-        'cursor-pointer rounded-md border bg-background px-3 py-2.5 transition-all duration-150',
-        'hover:bg-muted/40',
-        isDragging && 'opacity-40',
+        'cursor-grab select-none rounded-md border bg-background px-3 py-2.5 transition-all duration-150',
+        'hover:bg-muted/40 active:cursor-grabbing',
+        isSelected && 'ring-2 ring-primary/40 bg-primary/5',
+        isDragging && 'opacity-30 border-dashed border-muted-foreground/30',
       )}
       onClick={() => onEdit(card)}
       {...attributes}
       {...listeners}
     >
       <div className="text-sm">{card.title}</div>
-      {card.description && (
-        <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-          {card.description}
+      {/* 담당자: 윗줄 좌측 */}
+      {assignees.length > 0 && (
+        <div className="mt-2 flex items-center -space-x-1">
+          {assignees.slice(0, 3).map((assignee) => (
+            <div
+              key={assignee.id}
+              className="flex size-5 shrink-0 items-center justify-center rounded-full border border-background bg-muted text-[10px] font-medium"
+              title={assignee.name}
+            >
+              {assignee.name[0]}
+            </div>
+          ))}
+          {extraAssigneeCount > 0 && (
+            <span className="ml-1 shrink-0 text-[10px] text-muted-foreground">
+              +{extraAssigneeCount}
+            </span>
+          )}
         </div>
       )}
-      {/* 담당자: 윗줄 좌측 */}
-      <div className="mt-2 flex items-center">
-        {card.assignee ? (
-          <div
-            className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-medium"
-            title={card.assignee.name}
-          >
-            {card.assignee.name[0]}
-          </div>
-        ) : (
-          <span className="text-[10px] text-muted-foreground/70">미배정</span>
-        )}
-      </div>
       {/* 중요도, 라벨, 날짜 */}
       <div className="mt-1.5 flex items-center gap-1.5">
         {card.priority && PRIORITY_LABELS[card.priority] && (

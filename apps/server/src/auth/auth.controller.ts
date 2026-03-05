@@ -1,11 +1,13 @@
-import { Controller, Post, Get, Patch, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Delete, Body, Param, Req, Res, UseGuards, UnauthorizedException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Request, Response } from 'express';
+import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import {
   RegisterDto,
   RegisterResponseDto,
   LoginDto,
-  AuthResponseDto,
+  LoginResponseDto,
   UserProfileDto,
   UpdateProfileDto,
   CreateApiKeyDto,
@@ -18,10 +20,42 @@ import { UserRole } from './entities/user.entity';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, CurrentUserPayload } from '../common/decorators/current-user.decorator';
 
+const ACCESS_TOKEN_MAX_AGE = 15 * 60 * 1000; // 15분
+const REFRESH_TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7일
+
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  private readonly isProduction: boolean;
+
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {
+    this.isProduction = configService.get<string>('NODE_ENV') === 'production';
+  }
+
+  private setAuthCookies(res: Response, accessToken: string, refreshToken: string) {
+    res.cookie('access_token', accessToken, {
+      httpOnly: true,
+      secure: this.isProduction,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: ACCESS_TOKEN_MAX_AGE,
+    });
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: this.isProduction,
+      sameSite: 'lax',
+      path: '/auth/refresh',
+      maxAge: REFRESH_TOKEN_MAX_AGE,
+    });
+  }
+
+  private clearAuthCookies(res: Response) {
+    res.clearCookie('access_token', { path: '/' });
+    res.clearCookie('refresh_token', { path: '/auth/refresh' });
+  }
 
   @Post('register')
   @ApiOperation({ summary: '회원가입 (관리자 승인 필요)' })
@@ -33,19 +67,41 @@ export class AuthController {
 
   @Post('login')
   @ApiOperation({ summary: '로그인' })
-  @ApiResponse({ status: 200, type: AuthResponseDto })
+  @ApiResponse({ status: 200, type: LoginResponseDto })
   @ApiResponse({ status: 401, description: '인증 실패' })
-  login(@Body() dto: LoginDto): Promise<AuthResponseDto> {
-    return this.authService.login(dto);
+  async login(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<LoginResponseDto> {
+    const result = await this.authService.login(dto);
+    this.setAuthCookies(res, result.tokens.accessToken, result.tokens.refreshToken);
+    return result.user;
   }
 
   @Post('refresh')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: '토큰 갱신' })
-  @ApiResponse({ status: 200, type: AuthResponseDto })
-  refresh(@CurrentUser() user: CurrentUserPayload): Promise<AuthResponseDto> {
-    return this.authService.refresh(user.id);
+  @ApiOperation({ summary: '토큰 갱신 (쿠키 기반)' })
+  @ApiResponse({ status: 200, type: LoginResponseDto })
+  @ApiResponse({ status: 401, description: '유효하지 않은 리프레시 토큰' })
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<LoginResponseDto> {
+    const refreshToken = req.cookies?.['refresh_token'];
+    if (!refreshToken) {
+      throw new UnauthorizedException('리프레시 토큰이 없습니다.');
+    }
+
+    const result = await this.authService.refresh(refreshToken);
+    this.setAuthCookies(res, result.tokens.accessToken, result.tokens.refreshToken);
+    return result.user;
+  }
+
+  @Post('logout')
+  @ApiOperation({ summary: '로그아웃' })
+  @ApiResponse({ status: 200, description: '로그아웃 완료' })
+  logout(@Res({ passthrough: true }) res: Response): { message: string } {
+    this.clearAuthCookies(res);
+    return { message: '로그아웃되었습니다.' };
   }
 
   @Get('me')

@@ -1,7 +1,6 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import { getAccessToken, setTokens, clearTokens } from '@/lib/auth';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:50002';
 
@@ -29,23 +28,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchProfile = useCallback(async () => {
-    const token = getAccessToken();
-    if (!token) {
-      setIsLoading(false);
-      return;
-    }
-
     try {
       const res = await fetch(`${BASE_URL}/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       if (res.ok) {
         setUser(await res.json());
       } else {
-        clearTokens();
+        setUser(null);
       }
     } catch {
-      clearTokens();
+      setUser(null);
     } finally {
       setIsLoading(false);
     }
@@ -59,6 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ email, password }),
     });
 
@@ -67,9 +61,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(err.message || '로그인 실패');
     }
 
-    const data = await res.json();
-    setTokens(data.accessToken, data.refreshToken);
-    await fetchProfile();
+    const userData = await res.json();
+    setUser(userData);
   };
 
   const register = async (email: string, password: string, name: string): Promise<string> => {
@@ -88,8 +81,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data.message;
   };
 
-  const logout = () => {
-    clearTokens();
+  const logout = async () => {
+    await fetch(`${BASE_URL}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    }).catch(() => {});
     setUser(null);
   };
 

@@ -8,6 +8,18 @@ export function useBoardCards(
   boardId: string,
   refetch: () => void,
 ) {
+  const addColumn = useCallback(
+    async (name: string) => {
+      await fetcher({
+        url: `/projects/${projectId}/boards/${boardId}/columns`,
+        method: 'POST',
+        data: { name },
+      });
+      refetch();
+    },
+    [projectId, boardId, refetch],
+  );
+
   const addCard = useCallback(
     async (columnId: string, title: string) => {
       await fetcher({
@@ -21,7 +33,16 @@ export function useBoardCards(
   );
 
   const updateCard = useCallback(
-    async (cardId: string, data: { title?: string; description?: string; priority?: string }) => {
+    async (
+      cardId: string,
+      data: {
+        title?: string;
+        description?: string;
+        priority?: string;
+        assigneeIds?: string[];
+        dueDate?: string | null;
+      },
+    ) => {
       await fetcher({
         url: `/projects/${projectId}/boards/${boardId}/cards/${cardId}`,
         method: 'PATCH',
@@ -37,6 +58,41 @@ export function useBoardCards(
       await fetcher({
         url: `/projects/${projectId}/boards/${boardId}/cards/${cardId}`,
         method: 'DELETE',
+      });
+      refetch();
+    },
+    [projectId, boardId, refetch],
+  );
+
+  const deleteCards = useCallback(
+    async (cardIds: string[]) => {
+      if (cardIds.length === 0) return;
+
+      const results = await Promise.allSettled(
+        cardIds.map((cardId) =>
+          fetcher<void>({
+            url: `/projects/${projectId}/boards/${boardId}/cards/${cardId}`,
+            method: 'DELETE',
+          }),
+        ),
+      );
+
+      refetch();
+
+      const failedCount = results.filter((result) => result.status === 'rejected').length;
+      if (failedCount > 0) {
+        throw new Error(`FAILED_TO_DELETE_${failedCount}`);
+      }
+    },
+    [projectId, boardId, refetch],
+  );
+
+  const updateColumn = useCallback(
+    async (columnId: string, data: { name?: string; color?: string }) => {
+      await fetcher({
+        url: `/projects/${projectId}/boards/${boardId}/columns/${columnId}`,
+        method: 'PATCH',
+        data,
       });
       refetch();
     },
@@ -65,5 +121,5 @@ export function useBoardCards(
     [projectId, boardId],
   );
 
-  return { addCard, updateCard, deleteCard, deleteColumn, moveCard };
+  return { addColumn, updateColumn, addCard, updateCard, deleteCard, deleteCards, deleteColumn, moveCard };
 }

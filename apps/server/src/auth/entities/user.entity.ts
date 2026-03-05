@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  ManyToMany,
 } from 'typeorm';
 import { ProjectMember } from '../../project/entities/project-member.entity';
 import { Card } from '../../board/entities/card.entity';
@@ -47,7 +48,7 @@ export class User {
   @OneToMany(() => ProjectMember, (pm) => pm.user)
   projectMemberships: ProjectMember[];
 
-  @OneToMany(() => Card, (card) => card.assignee)
+  @ManyToMany(() => Card, (card) => card.assignees)
   assignedCards: Card[];
 
   @OneToMany(() => ApiKey, (key) => key.user)

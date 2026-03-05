@@ -32,8 +32,7 @@ export default function ProjectLayout({
   const { project, isLoading } = useProject(projectId);
 
   return (
-    <div className="space-y-5">
-      {/* Breadcrumb - shadcn Breadcrumb */}
+    <div className="flex min-h-0 flex-1 flex-col gap-5 pb-6">
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
@@ -52,7 +51,6 @@ export default function ProjectLayout({
         </BreadcrumbList>
       </Breadcrumb>
 
-      {/* Title & description */}
       {isLoading ? (
         <div className="space-y-1.5">
           <Skeleton className="h-7 w-48" />
@@ -71,7 +69,6 @@ export default function ProjectLayout({
         </header>
       )}
 
-      {/* Tab navigation */}
       <div className="flex gap-1 border-b border-border">
         {TABS.map((tab) => {
           const isActive = segment === tab.key;
@@ -95,8 +92,9 @@ export default function ProjectLayout({
         })}
       </div>
 
-      {/* Content */}
-      {children}
+      <div className="flex min-h-0 flex-1 flex-col">
+        {children}
+      </div>
     </div>
   );
 }

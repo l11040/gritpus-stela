@@ -17,6 +17,10 @@ import { Response } from 'express';
 import { DocumentService } from './document.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, CurrentUserPayload } from '../common/decorators/current-user.decorator';
+import {
+  MAX_UPLOAD_FILE_SIZE_BYTES,
+  MAX_UPLOAD_FILE_SIZE_ERROR_MESSAGE,
+} from '../common/constants/upload.constants';
 
 @ApiTags('documents')
 @Controller('projects/:projectId/documents')
@@ -34,7 +38,12 @@ export class DocumentController {
     @CurrentUser() user: CurrentUserPayload,
     @UploadedFile(
       new ParseFilePipe({
-        validators: [new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 })],
+        validators: [
+          new MaxFileSizeValidator({
+            maxSize: MAX_UPLOAD_FILE_SIZE_BYTES,
+            message: MAX_UPLOAD_FILE_SIZE_ERROR_MESSAGE,
+          }),
+        ],
       }),
     )
     file: Express.Multer.File,

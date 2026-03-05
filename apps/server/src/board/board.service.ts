@@ -68,7 +68,13 @@ export class BoardService {
   async getBoard(boardId: string): Promise<Board> {
     const board = await this.boardRepo.findOne({
       where: { id: boardId },
-      relations: ['columns', 'columns.cards', 'columns.cards.assignee', 'columns.cards.labels'],
+      relations: [
+        'columns',
+        'columns.cards',
+        'columns.cards.assignee',
+        'columns.cards.assignees',
+        'columns.cards.labels',
+      ],
       order: { columns: { position: 'ASC', cards: { position: 'ASC' } } },
     });
     if (!board) throw new NotFoundException('보드를 찾을 수 없습니다.');
@@ -110,21 +116,26 @@ export class BoardService {
   // ─── Card CRUD ───
 
   async createCard(dto: CreateCardDto): Promise<Card> {
+    const assigneeIds = this.normalizeAssigneeIds(dto.assigneeIds, dto.assigneeId);
     const count = await this.cardRepo.count({ where: { columnId: dto.columnId } });
     const card = this.cardRepo.create({
       title: dto.title,
       description: dto.description,
       priority: dto.priority,
       columnId: dto.columnId,
-      assigneeId: dto.assigneeId,
+      assigneeId: assigneeIds[0],
       dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
       position: count,
     });
     const saved = await this.cardRepo.save(card);
 
-    if (dto.labelIds?.length) {
-      const labels = await this.labelRepo.find({ where: { id: In(dto.labelIds) } });
+    if (dto.labelIds !== undefined || assigneeIds.length > 0) {
+      const labels = dto.labelIds?.length
+        ? await this.labelRepo.find({ where: { id: In(dto.labelIds) } })
+        : [];
+      const assignees = await this.resolveAssignees(assigneeIds);
       saved.labels = labels;
+      saved.assignees = assignees;
       await this.cardRepo.save(saved);
     }
 
@@ -139,12 +150,14 @@ export class BoardService {
     const qb = this.cardRepo
       .createQueryBuilder('card')
       .leftJoinAndSelect('card.assignee', 'assignee')
+      .leftJoinAndSelect('card.assignees', 'assignees')
       .leftJoinAndSelect('card.labels', 'label')
       .innerJoin('card.column', 'column')
+      .distinct(true)
       .where('column.boardId = :boardId', { boardId });
 
     if (filters?.assigneeId) {
-      qb.andWhere('card.assigneeId = :assigneeId', { assigneeId: filters.assigneeId });
+      qb.andWhere('assignees.id = :assigneeId', { assigneeId: filters.assigneeId });
     }
     if (filters?.priority) {
       qb.andWhere('card.priority = :priority', { priority: filters.priority });
@@ -159,7 +172,7 @@ export class BoardService {
   async getCard(cardId: string): Promise<Card> {
     const card = await this.cardRepo.findOne({
       where: { id: cardId },
-      relations: ['assignee', 'labels', 'column'],
+      relations: ['assignee', 'assignees', 'labels', 'column'],
     });
     if (!card) throw new NotFoundException('카드를 찾을 수 없습니다.');
     return card;
@@ -167,16 +180,30 @@ export class BoardService {
 
   async updateCard(cardId: string, dto: UpdateCardDto): Promise<Card> {
     const card = await this.getCard(cardId);
+    const assigneeIds = this.normalizeAssigneeIds(dto.assigneeIds, dto.assigneeId);
 
-    if (dto.labelIds) {
-      const labels = await this.labelRepo.find({ where: { id: In(dto.labelIds) } });
+    if (dto.labelIds !== undefined) {
+      const labels = dto.labelIds.length
+        ? await this.labelRepo.find({ where: { id: In(dto.labelIds) } })
+        : [];
       card.labels = labels;
     }
+    if (dto.assigneeIds !== undefined || dto.assigneeId !== undefined) {
+      const assignees = await this.resolveAssignees(assigneeIds);
+      card.assignees = assignees;
+      card.assigneeId = assigneeIds[0] ?? null;
+    }
 
-    const { labelIds, ...rest } = dto;
+    const { labelIds, assigneeId: _assigneeId, assigneeIds: _assigneeIds, ...rest } = dto;
+    const nextDueDate =
+      dto.dueDate === undefined
+        ? card.dueDate
+        : dto.dueDate
+          ? new Date(dto.dueDate)
+          : null;
     Object.assign(card, {
       ...rest,
-      dueDate: dto.dueDate ? new Date(dto.dueDate) : card.dueDate,
+      dueDate: nextDueDate,
     });
     await this.cardRepo.save(card);
     return this.getCard(cardId);
@@ -269,11 +296,15 @@ export class BoardService {
         if (found) targetColumn = found;
       }
 
-      // assignee 찾기: 이메일로 매칭
-      let assigneeId: string | undefined;
-      if (item.assigneeEmail) {
-        const user = await this.userRepo.findOne({ where: { email: item.assigneeEmail } });
-        if (user) assigneeId = user.id;
+      // assignee 찾기: 이메일(단일/다중)로 매칭
+      const assigneeEmails = this.normalizeAssigneeEmails(
+        item.assigneeEmails,
+        item.assigneeEmail,
+      );
+      let assigneeIds: string[] = [];
+      if (assigneeEmails.length > 0) {
+        const users = await this.userRepo.find({ where: { email: In(assigneeEmails) } });
+        assigneeIds = users.map((user) => user.id);
       }
 
       const card = await this.createCard({
@@ -281,13 +312,28 @@ export class BoardService {
         description: item.description,
         priority: item.priority,
         columnId: targetColumn.id,
-        assigneeId,
+        assigneeIds,
         dueDate: item.dueDate,
       });
       results.push(card);
     }
 
     return results;
+  }
+
+  private normalizeAssigneeIds(assigneeIds?: string[], assigneeId?: string): string[] {
+    const ids = [...(assigneeIds ?? []), ...(assigneeId ? [assigneeId] : [])];
+    return [...new Set(ids.map((id) => id?.trim()).filter((id): id is string => !!id))];
+  }
+
+  private normalizeAssigneeEmails(assigneeEmails?: string[], assigneeEmail?: string): string[] {
+    const emails = [...(assigneeEmails ?? []), ...(assigneeEmail ? [assigneeEmail] : [])];
+    return [...new Set(emails.map((email) => email.trim().toLowerCase()).filter(Boolean))];
+  }
+
+  private async resolveAssignees(assigneeIds: string[]): Promise<User[]> {
+    if (assigneeIds.length === 0) return [];
+    return this.userRepo.find({ where: { id: In(assigneeIds) } });
   }
 
   // ─── Label CRUD ───

@@ -45,11 +45,19 @@ export class Card {
   @Column()
   columnId: string;
 
-  @ManyToOne(() => User, (u) => u.assignedCards, { nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   assignee: User;
 
   @Column({ nullable: true })
   assigneeId: string;
+
+  @ManyToMany(() => User, (u) => u.assignedCards)
+  @JoinTable({
+    name: 'card_assignees',
+    joinColumn: { name: 'cardId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'userId', referencedColumnName: 'id' },
+  })
+  assignees: User[];
 
   @ManyToMany(() => Label)
   @JoinTable({ name: 'card_labels' })

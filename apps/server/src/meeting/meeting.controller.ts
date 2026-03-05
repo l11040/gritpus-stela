@@ -6,23 +6,37 @@ import {
   Delete,
   Body,
   Param,
+  Sse,
+  HttpCode,
+  HttpStatus,
   UseGuards,
   UseInterceptors,
   UploadedFile,
+  ParseFilePipe,
+  MaxFileSizeValidator,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiConsumes, ApiBearerAuth } from '@nestjs/swagger';
+import { Observable } from 'rxjs';
 import { MeetingService } from './meeting.service';
+import { MeetingProgressService } from './meeting-progress.service';
 import { CreateMeetingDto, UpdatePreviewDto, ConfirmMeetingDto } from './meeting.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, CurrentUserPayload } from '../common/decorators/current-user.decorator';
+import {
+  MAX_UPLOAD_FILE_SIZE_BYTES,
+  MAX_UPLOAD_FILE_SIZE_ERROR_MESSAGE,
+} from '../common/constants/upload.constants';
 
 @ApiTags('meetings')
 @Controller('projects/:projectId/meetings')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class MeetingController {
-  constructor(private readonly meetingService: MeetingService) {}
+  constructor(
+    private readonly meetingService: MeetingService,
+    private readonly progressService: MeetingProgressService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: '회의록 생성 (텍스트 또는 파일)' })
@@ -32,7 +46,18 @@ export class MeetingController {
     @Param('projectId') projectId: string,
     @CurrentUser() user: CurrentUserPayload,
     @Body() dto: CreateMeetingDto,
-    @UploadedFile() file?: Express.Multer.File,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({
+            maxSize: MAX_UPLOAD_FILE_SIZE_BYTES,
+            message: MAX_UPLOAD_FILE_SIZE_ERROR_MESSAGE,
+          }),
+        ],
+        fileIsRequired: false,
+      }),
+    )
+    file?: Express.Multer.File,
   ) {
     return this.meetingService.create(projectId, user.id, dto, file);
   }
@@ -50,9 +75,16 @@ export class MeetingController {
   }
 
   @Post(':meetingId/parse')
-  @ApiOperation({ summary: 'AI로 회의록 파싱' })
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ summary: 'AI로 회의록 파싱 (비동기)' })
   parse(@Param('meetingId') meetingId: string) {
-    return this.meetingService.parse(meetingId);
+    return this.meetingService.parseAsync(meetingId);
+  }
+
+  @Sse(':meetingId/parse/events')
+  @ApiOperation({ summary: '파싱 진행 상황 SSE 스트림' })
+  parseEvents(@Param('meetingId') meetingId: string): Observable<MessageEvent> {
+    return this.progressService.subscribe(meetingId);
   }
 
   @Get(':meetingId/preview')

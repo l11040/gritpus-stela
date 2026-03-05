@@ -7,6 +7,7 @@ export interface CardItem {
   dueDate: string | null;
   createdAt?: string;
   assignee: { id: string; name: string } | null;
+  assignees?: { id: string; name: string }[];
   labels: { id: string; name: string; color: string }[];
 }
 

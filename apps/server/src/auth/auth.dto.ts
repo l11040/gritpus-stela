@@ -36,6 +36,26 @@ export class AuthResponseDto {
   refreshToken: string;
 }
 
+export class LoginResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  email: string;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiPropertyOptional()
+  profileImageUrl: string | null;
+
+  @ApiProperty()
+  role: string;
+
+  @ApiProperty()
+  isApproved: boolean;
+}
+
 export class RegisterResponseDto {
   @ApiProperty()
   message: string;

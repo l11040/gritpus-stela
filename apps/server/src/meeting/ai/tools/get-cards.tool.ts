@@ -32,7 +32,7 @@ export class GetCardsTool extends StructuredTool {
         id: c.id,
         title: c.title,
         priority: c.priority,
-        assignee: c.assignee?.name ?? null,
+        assignees: c.assignees?.map((a) => a.name) ?? [],
         labels: c.labels?.map((l) => l.name) ?? [],
       }));
       return JSON.stringify(simplified);

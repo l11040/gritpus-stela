@@ -83,6 +83,12 @@ export class CreateCardDto {
   @IsOptional()
   assigneeId?: string;
 
+  @ApiPropertyOptional({ type: [String], description: '다중 담당자 ID 목록' })
+  @IsArray()
+  @IsUUID('4', { each: true })
+  @IsOptional()
+  assigneeIds?: string[];
+
   @ApiPropertyOptional()
   @IsDateString()
   @IsOptional()
@@ -115,6 +121,12 @@ export class UpdateCardDto {
   @IsUUID()
   @IsOptional()
   assigneeId?: string;
+
+  @ApiPropertyOptional({ type: [String], description: '다중 담당자 ID 목록' })
+  @IsArray()
+  @IsUUID('4', { each: true })
+  @IsOptional()
+  assigneeIds?: string[];
 
   @ApiPropertyOptional()
   @IsDateString()
@@ -191,6 +203,12 @@ export class ExternalCardItemDto {
   @IsString()
   @IsOptional()
   assigneeEmail?: string;
+
+  @ApiPropertyOptional({ type: [String], description: '다중 담당자 이메일 목록' })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  assigneeEmails?: string[];
 
   @ApiPropertyOptional()
   @IsDateString()

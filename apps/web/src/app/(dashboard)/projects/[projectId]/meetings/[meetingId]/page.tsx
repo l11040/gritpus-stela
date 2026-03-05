@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { fetcher } from '@/api/fetcher';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RichEditor } from '@/components/common/rich-editor';
+import { useParseProgressContext } from '@/features/meeting/providers/parse-progress-provider';
 
 interface Meeting {
   id: string;
@@ -14,7 +15,14 @@ interface Meeting {
   rawContent: string;
   status: string;
   meetingSummary: string | null;
-  parsedActionItems: { title: string; description?: string; priority?: string; assigneeName?: string; dueDate?: string }[] | null;
+  parsedActionItems: {
+    title: string;
+    description?: string;
+    priority?: string;
+    assigneeName?: string;
+    assigneeNames?: string[];
+    dueDate?: string;
+  }[] | null;
   createdAt: string;
 }
 
@@ -30,32 +38,44 @@ export default function MeetingDetailPage() {
   const { projectId, meetingId } = useParams<{ projectId: string; meetingId: string }>();
   const router = useRouter();
   const [meeting, setMeeting] = useState<Meeting | null>(null);
-  const [parsing, setParsing] = useState(false);
   const [rawExpanded, setRawExpanded] = useState(false);
+  const { startParsing, isParsing, onComplete } = useParseProgressContext();
 
-  const load = () => {
+  const load = useCallback(() => {
     fetcher<Meeting>({ url: `/projects/${projectId}/meetings/${meetingId}`, method: 'GET' })
       .then(setMeeting)
       .catch(() => {});
-  };
+  }, [projectId, meetingId]);
 
-  useEffect(() => { load(); }, [projectId, meetingId]);
+  useEffect(() => { load(); }, [load]);
+
+  // Reload meeting data when parsing completes
+  useEffect(() => {
+    onComplete((completedMeetingId) => {
+      if (completedMeetingId === meetingId) {
+        load();
+      }
+    });
+  }, [meetingId, load, onComplete]);
 
   const handleParse = async () => {
-    setParsing(true);
-    try {
-      await fetcher({ url: `/projects/${projectId}/meetings/${meetingId}/parse`, method: 'POST' });
-      load();
-    } catch {
-    } finally {
-      setParsing(false);
-    }
+    if (!meeting) return;
+    await startParsing(projectId, meetingId, meeting.title);
+    // Update local status immediately
+    setMeeting((prev) => prev ? { ...prev, status: 'parsing' } : prev);
   };
 
   if (!meeting) return null;
 
+  const canRunInitialParse =
+    meeting.status === 'uploaded' || meeting.status === 'failed';
+  const canReparse =
+    meeting.status === 'parsed' || meeting.status === 'confirmed';
+  const initialParseButtonLabel =
+    meeting.status === 'failed' ? '다시 시도' : 'AI로 액션 아이템 추출';
+
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -69,28 +89,37 @@ export default function MeetingDetailPage() {
         </Badge>
       </div>
 
-      {/* Parse button / Failed */}
-      {meeting.status === 'uploaded' && (
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={handleParse}
-            disabled={parsing}
-            variant="outline"
-            size="sm"
-            className="h-8 text-xs"
-          >
-            {parsing ? 'AI 파싱 중... (최대 3분 소요)' : 'AI로 액션 아이템 추출'}
-          </Button>
+      {meeting.status === 'parsing' && (
+        <div className="rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+          AI 파싱 중입니다. 최대 3분 정도 소요될 수 있습니다.
         </div>
       )}
+
+      {/* Parse action */}
+      {canRunInitialParse && (
+        <div className="rounded-md border border-dashed bg-muted/20 px-3 py-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">
+              회의록을 분석해 액션 아이템을 추출합니다.
+            </p>
+            <Button
+              onClick={handleParse}
+              disabled={isParsing}
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+            >
+              {isParsing ? 'AI 파싱 중...' : initialParseButtonLabel}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {meeting.status === 'failed' && (
         <div className="space-y-2">
           <div className="rounded-md bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
             AI 파싱에 실패했습니다.
           </div>
-          <Button onClick={handleParse} disabled={parsing} variant="outline" size="sm">
-            다시 시도
-          </Button>
         </div>
       )}
 
@@ -99,7 +128,9 @@ export default function MeetingDetailPage() {
         <section>
           <h3 className="mb-2 text-sm font-medium text-muted-foreground">회의 요약</h3>
           <div className="rounded-md border px-4 py-3">
-            <p className="text-sm leading-relaxed">{meeting.meetingSummary}</p>
+            <div className="whitespace-pre-wrap text-sm leading-relaxed">
+              {meeting.meetingSummary}
+            </div>
           </div>
         </section>
       )}
@@ -111,16 +142,29 @@ export default function MeetingDetailPage() {
             <h3 className="text-sm font-medium text-muted-foreground">
               추출된 액션 아이템 ({meeting.parsedActionItems.length}개)
             </h3>
-            {meeting.status === 'parsed' && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => router.push(`/projects/${projectId}/meetings/${meetingId}/preview`)}
-              >
-                미리보기 및 등록
-              </Button>
-            )}
+            <div className="flex items-center gap-1">
+              {canReparse && (
+                <Button
+                  onClick={handleParse}
+                  disabled={isParsing}
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                >
+                  {isParsing ? '다시 파싱 중...' : '다시 파싱'}
+                </Button>
+              )}
+              {meeting.status === 'parsed' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => router.push(`/projects/${projectId}/meetings/${meetingId}/preview`)}
+                >
+                  미리보기 및 등록
+                </Button>
+              )}
+            </div>
           </div>
           <div className="space-y-1">
             {meeting.parsedActionItems.map((item, i) => (
@@ -138,7 +182,11 @@ export default function MeetingDetailPage() {
                       {item.priority}
                     </Badge>
                   )}
-                  {item.assigneeName && <span>담당: {item.assigneeName}</span>}
+                  {(item.assigneeNames?.length || item.assigneeName) && (
+                    <span>
+                      담당: {item.assigneeNames?.length ? item.assigneeNames.join(', ') : item.assigneeName}
+                    </span>
+                  )}
                   {item.dueDate && <span>기한: {item.dueDate}</span>}
                 </div>
               </div>

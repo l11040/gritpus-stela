@@ -4,6 +4,8 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/providers/auth-provider';
 import { Sidebar } from '@/components/common/sidebar';
+import { ParseProgressProvider } from '@/features/meeting/providers/parse-progress-provider';
+import { ParseProgressTracker } from '@/features/meeting/components/parse-progress-tracker';
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -26,14 +28,17 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   if (!user) return null;
 
   return (
-    <div className="flex h-screen">
-      <Sidebar />
-      <main className="flex-1 overflow-auto">
-        <div className="mx-auto max-w-5xl px-8 py-6">
-          {children}
-        </div>
-      </main>
-    </div>
+    <ParseProgressProvider>
+      <div className="flex h-screen">
+        <Sidebar />
+        <main className="flex flex-1 flex-col overflow-auto">
+          <div className="flex min-h-0 flex-1 flex-col px-8 pt-6">
+            {children}
+          </div>
+        </main>
+      </div>
+      <ParseProgressTracker />
+    </ParseProgressProvider>
   );
 }
 

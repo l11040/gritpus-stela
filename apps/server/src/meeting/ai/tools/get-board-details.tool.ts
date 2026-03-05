@@ -31,7 +31,7 @@ export class GetBoardDetailsTool extends StructuredTool {
           cards: (c.cards ?? []).slice(0, 10).map((card) => ({
             id: card.id,
             title: card.title,
-            assignee: card.assignee?.name ?? null,
+            assignees: card.assignees?.map((a) => a.name) ?? [],
             priority: card.priority,
           })),
         })),

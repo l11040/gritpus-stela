@@ -1,6 +1,25 @@
-import { getAccessToken } from '@/lib/auth';
-
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:50002';
+
+let isRefreshing = false;
+let refreshPromise: Promise<boolean> | null = null;
+
+async function tryRefresh(): Promise<boolean> {
+  if (isRefreshing) return refreshPromise!;
+
+  isRefreshing = true;
+  refreshPromise = fetch(`${BASE_URL}/auth/refresh`, {
+    method: 'POST',
+    credentials: 'include',
+  })
+    .then((res) => res.ok)
+    .catch(() => false)
+    .finally(() => {
+      isRefreshing = false;
+      refreshPromise = null;
+    });
+
+  return refreshPromise;
+}
 
 export const fetcher = async <T>({
   url,
@@ -14,17 +33,28 @@ export const fetcher = async <T>({
   data?: unknown;
 }): Promise<T> => {
   const search = params ? `?${new URLSearchParams(params)}` : '';
-  const token = getAccessToken();
   const headers: Record<string, string> = {};
 
-  if (token) headers['Authorization'] = `Bearer ${token}`;
   if (data) headers['Content-Type'] = 'application/json';
 
-  const response = await fetch(`${BASE_URL}${url}${search}`, {
+  let response = await fetch(`${BASE_URL}${url}${search}`, {
     method,
     headers,
+    credentials: 'include',
     body: data ? JSON.stringify(data) : undefined,
   });
+
+  if (response.status === 401) {
+    const refreshed = await tryRefresh();
+    if (refreshed) {
+      response = await fetch(`${BASE_URL}${url}${search}`, {
+        method,
+        headers,
+        credentials: 'include',
+        body: data ? JSON.stringify(data) : undefined,
+      });
+    }
+  }
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));

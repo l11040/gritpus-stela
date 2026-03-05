@@ -60,10 +60,10 @@ export default function BoardsLayout({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-full min-h-0 flex-1 flex-col">
       {/* Board sub-tabs */}
       {boards.length > 0 && (
-        <div className="flex items-center gap-1 overflow-x-auto">
+        <div className="mb-4 flex items-center gap-1 overflow-x-auto">
           {boards.map((board) => {
             const isActive = segment === board.id;
             return (
@@ -106,7 +106,9 @@ export default function BoardsLayout({
         </div>
       )}
 
-      {children}
+      <div className="flex min-h-0 flex-1 flex-col">
+        {children}
+      </div>
 
       <CreateBoardDialog
         projectId={projectId}

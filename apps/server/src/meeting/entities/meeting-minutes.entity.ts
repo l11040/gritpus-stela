@@ -32,7 +32,7 @@ export class MeetingMinutes {
   @Column({ type: 'json', nullable: true })
   parsedActionItems: object;
 
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'text', nullable: true })
   meetingSummary: string;
 
   @Column({

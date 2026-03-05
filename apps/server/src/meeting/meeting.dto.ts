@@ -36,6 +36,18 @@ export class ParsedActionItemDto {
   @IsOptional()
   assigneeId?: string;
 
+  @ApiPropertyOptional({ type: [String], description: '매핑된 다중 담당자 ID 목록' })
+  @IsArray()
+  @IsUUID('4', { each: true })
+  @IsOptional()
+  assigneeIds?: string[];
+
+  @ApiPropertyOptional({ type: [String], description: '회의록에서 추출된 담당자 이름 목록' })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  assigneeNames?: string[];
+
   @ApiPropertyOptional({ enum: CardPriority })
   @IsEnum(CardPriority)
   @IsOptional()

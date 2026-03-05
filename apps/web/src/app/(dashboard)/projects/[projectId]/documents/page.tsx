@@ -9,6 +9,8 @@ import { Upload, FileText, Download, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:50002';
+const MAX_UPLOAD_FILE_SIZE_BYTES = 100 * 1024 * 1024; // 100MB
+const MAX_UPLOAD_FILE_SIZE_MB = Math.floor(MAX_UPLOAD_FILE_SIZE_BYTES / (1024 * 1024));
 
 interface Document {
   id: string;
@@ -44,27 +46,39 @@ export default function DocumentsPage() {
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > MAX_UPLOAD_FILE_SIZE_BYTES) {
+      toast.error(`파일 용량은 최대 ${MAX_UPLOAD_FILE_SIZE_MB}MB까지 업로드할 수 있습니다.`);
+      e.target.value = '';
+      return;
+    }
     setUploading(true);
 
     const formData = new FormData();
     formData.append('file', file);
 
-    const token = localStorage.getItem('gst_access_token');
-    await fetch(`${BASE_URL}/projects/${projectId}/documents`, {
-      method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: formData,
-    });
-
-    setUploading(false);
-    load();
-    e.target.value = '';
+    try {
+      const res = await fetch(`${BASE_URL}/projects/${projectId}/documents`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || '문서 업로드에 실패했습니다.');
+      }
+      toast.success('문서가 업로드되었습니다.');
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '문서 업로드에 실패했습니다.');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
   };
 
   const download = (doc: Document) => {
-    const token = localStorage.getItem('gst_access_token');
     window.open(
-      `${BASE_URL}/projects/${projectId}/documents/${doc.id}/download?token=${token}`,
+      `${BASE_URL}/projects/${projectId}/documents/${doc.id}/download`,
       '_blank',
     );
   };

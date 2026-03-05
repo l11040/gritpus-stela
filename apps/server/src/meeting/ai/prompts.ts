@@ -19,15 +19,15 @@ Your FINAL ANSWER must be valid JSON in this exact format:
 
 \`\`\`json
 {
-  "meetingSummary": "Brief 1-2 sentence summary of the meeting",
+  "meetingSummary": "Working summary paragraph (internal fallback only)",
   "actionItems": [
     {
       "title": "Concise action item title",
       "description": "Detailed description with meeting context",
-      "assigneeName": "Name as mentioned in meeting",
-      "assigneeId": "UUID of matched project member (if found)",
+      "assigneeNames": ["Name(s) as mentioned in meeting"],
+      "assigneeIds": ["UUIDs of matched project members (if found)"],
       "priority": "low|medium|high|urgent",
-      "dueDate": "YYYY-MM-DD (if mentioned)",
+      "dueDate": "YYYY-MM-DD (if mentioned; resolve relative dates using Reference Date)",
       "suggestedLabels": ["label1", "label2"]
     }
   ]
@@ -36,12 +36,15 @@ Your FINAL ANSWER must be valid JSON in this exact format:
 
 ## Rules
 1. Extract ALL action items, tasks, and follow-ups mentioned
-2. For assigneeId: use get_project_members to find the userId matching the assigneeName. Use fuzzy matching (partial name match). Leave assigneeId as null if no match found.
-3. Priority: infer from urgency/importance cues. Default to "medium" if unclear.
-4. dueDate: only include if explicitly mentioned or clearly implied
-5. suggestedLabels: suggest relevant tags based on the content
-6. Preserve the original language of the meeting minutes (Korean, English, etc.)
-7. Do NOT output anything except valid JSON in your Final Answer`;
+2. For assigneeIds: use get_project_members to find matching userIds using fuzzy matching (partial name, similar spelling, email/local-part). Keep multiple assignees if mentioned.
+3. If only one assignee exists, still return it as an array with one item.
+4. assigneeIds must contain only valid UUIDs from get_project_members. If uncertain, keep the person only in assigneeNames and leave assigneeIds empty.
+5. Priority: infer from urgency/importance cues. Default to "medium" if unclear.
+6. dueDate: only include if explicitly mentioned or clearly implied, and always convert relative terms (e.g. 내일, 다음주 금요일, next Monday) into YYYY-MM-DD using the provided Reference Date
+7. suggestedLabels: suggest relevant tags based on the content
+8. Preserve the original language of the meeting minutes (Korean, English, etc.)
+9. meetingSummary can be concise because a dedicated summarizer will run after parsing.
+10. Do NOT output anything except valid JSON in your Final Answer`;
 
 export function buildReactPrompt(
   tools: StructuredTool[],

@@ -6,7 +6,7 @@ import { createMeetingTools } from './tools';
 import { MEETING_SYSTEM_PROMPT, buildReactPrompt } from './prompts';
 import { ProjectService } from '../../project/project.service';
 import { BoardService } from '../../board/board.service';
-import type { ParsedMeetingResult } from '../meeting-ai.service';
+import type { ParsedMeetingResult, AgentProgressCallback } from '../meeting-ai.service';
 
 const AGENT_TIMEOUT_MS = 300_000;
 const MAX_ITERATIONS = 8;
@@ -31,6 +31,8 @@ export class MeetingAgentService {
   async parseMinutes(
     projectId: string,
     rawContent: string,
+    referenceDate?: string | Date,
+    onProgress?: AgentProgressCallback,
   ): Promise<ParsedMeetingResult> {
     const tools = createMeetingTools(this.projectService, this.boardService);
 
@@ -43,7 +45,7 @@ export class MeetingAgentService {
 
     try {
       const result = await Promise.race([
-        this.runReactLoop(tools, projectId, rawContent),
+        this.runReactLoop(tools, projectId, rawContent, referenceDate, onProgress),
         timeoutPromise,
       ]);
       return result;
@@ -62,14 +64,22 @@ export class MeetingAgentService {
     tools: StructuredTool[],
     projectId: string,
     rawContent: string,
+    referenceDate?: string | Date,
+    onProgress?: AgentProgressCallback,
   ): Promise<ParsedMeetingResult> {
     const toolMap = new Map(tools.map((t) => [t.name, t]));
     const scratchpad: string[] = [];
+
+    const parsedReferenceDate = referenceDate ? new Date(referenceDate) : new Date();
+    const referenceDateText = Number.isNaN(parsedReferenceDate.getTime())
+      ? new Date().toISOString().slice(0, 10)
+      : parsedReferenceDate.toISOString().slice(0, 10);
 
     const input = `${MEETING_SYSTEM_PROMPT}
 
 ## Context
 Project ID: ${projectId}
+Reference Date: ${referenceDateText}
 
 ## Meeting Minutes
 ---
@@ -82,6 +92,12 @@ Please analyze the meeting minutes above. First use the tools to gather project 
       const prompt = buildReactPrompt(tools, input, scratchpad.join('\n'));
 
       this.logger.log(`Agent iteration ${i + 1}/${MAX_ITERATIONS}`);
+      onProgress?.({
+        step: 'agent_iteration',
+        message: `AI 에이전트 분석 중 (${i + 1}/${MAX_ITERATIONS})...`,
+        iteration: i + 1,
+        maxIterations: MAX_ITERATIONS,
+      });
       const response = await this.llm.invoke(prompt);
 
       const finalAnswer = this.extractFinalAnswer(response);
@@ -110,6 +126,11 @@ Please analyze the meeting minutes above. First use the tools to gather project 
       }
 
       try {
+        onProgress?.({
+          step: 'agent_tool',
+          message: `${action.name} 조회 중...`,
+          detail: action.name,
+        });
         const toolInput = JSON.parse(action.input);
         const observation = await tool.invoke(toolInput);
         scratchpad.push(`${response}\nObservation: ${observation}`);

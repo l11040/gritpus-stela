@@ -49,7 +49,7 @@ export class AuthService {
     return { message: '회원가입이 완료되었습니다. 관리자 승인 후 로그인할 수 있습니다.' };
   }
 
-  async login(dto: LoginDto): Promise<AuthResponseDto> {
+  async login(dto: LoginDto): Promise<{ tokens: AuthResponseDto; user: UserProfileDto }> {
     const user = await this.userRepo.findOne({ where: { email: dto.email } });
     if (!user) throw new UnauthorizedException('이메일 또는 비밀번호가 올바르지 않습니다.');
 
@@ -60,13 +60,41 @@ export class AuthService {
       throw new ForbiddenException('관리자 승인 대기 중입니다. 승인 후 로그인할 수 있습니다.');
     }
 
-    return this.generateTokens(user);
+    return {
+      tokens: this.generateTokens(user),
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        profileImageUrl: user.profileImageUrl,
+        role: user.role,
+        isApproved: user.isApproved,
+      },
+    };
   }
 
-  async refresh(userId: string): Promise<AuthResponseDto> {
-    const user = await this.userRepo.findOne({ where: { id: userId } });
+  async refresh(refreshToken: string): Promise<{ tokens: AuthResponseDto; user: UserProfileDto }> {
+    let payload: { sub: string; email: string };
+    try {
+      payload = this.jwtService.verify(refreshToken);
+    } catch {
+      throw new UnauthorizedException('유효하지 않거나 만료된 리프레시 토큰입니다.');
+    }
+
+    const user = await this.userRepo.findOne({ where: { id: payload.sub } });
     if (!user) throw new UnauthorizedException();
-    return this.generateTokens(user);
+
+    return {
+      tokens: this.generateTokens(user),
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        profileImageUrl: user.profileImageUrl,
+        role: user.role,
+        isApproved: user.isApproved,
+      },
+    };
   }
 
   async getProfile(userId: string): Promise<UserProfileDto> {

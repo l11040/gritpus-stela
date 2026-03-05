@@ -7,8 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RichEditor } from '@/components/common/rich-editor';
 import { Upload } from 'lucide-react';
+import { toast } from 'sonner';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:50002';
+const MAX_UPLOAD_FILE_SIZE_BYTES = 100 * 1024 * 1024; // 100MB
+const MAX_UPLOAD_FILE_SIZE_MB = Math.floor(MAX_UPLOAD_FILE_SIZE_BYTES / (1024 * 1024));
 
 export default function NewMeetingPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -19,8 +22,27 @@ export default function NewMeetingPage() {
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nextFile = e.target.files?.[0] || null;
+    if (!nextFile) {
+      setFile(null);
+      return;
+    }
+    if (nextFile.size > MAX_UPLOAD_FILE_SIZE_BYTES) {
+      toast.error(`파일 용량은 최대 ${MAX_UPLOAD_FILE_SIZE_MB}MB까지 업로드할 수 있습니다.`);
+      e.target.value = '';
+      setFile(null);
+      return;
+    }
+    setFile(nextFile);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (file && file.size > MAX_UPLOAD_FILE_SIZE_BYTES) {
+      toast.error(`파일 용량은 최대 ${MAX_UPLOAD_FILE_SIZE_MB}MB까지 업로드할 수 있습니다.`);
+      return;
+    }
     setLoading(true);
 
     try {
@@ -29,17 +51,21 @@ export default function NewMeetingPage() {
       if (rawContent) formData.append('rawContent', rawContent);
       if (file) formData.append('file', file);
 
-      const token = localStorage.getItem('gst_access_token');
       const res = await fetch(`${BASE_URL}/projects/${projectId}/meetings`, {
         method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: 'include',
         body: formData,
       });
 
-      if (!res.ok) throw new Error('업로드 실패');
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || '회의록 업로드에 실패했습니다.');
+      }
       const meeting = await res.json();
       router.push(`/projects/${projectId}/meetings/${meeting.id}`);
-    } catch {
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '회의록 업로드에 실패했습니다.');
+    } finally {
       setLoading(false);
     }
   };
@@ -73,7 +99,7 @@ export default function NewMeetingPage() {
             ref={fileInputRef}
             type="file"
             accept=".txt,.md,.pdf,.docx"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            onChange={handleFileChange}
             className="hidden"
           />
           <button

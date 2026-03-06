@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DesktopLLM } from './desktop-llm';
 import { mapActionItemsWithFuzzyAssignees } from './assignee-matcher';
+import { throwIfAborted } from './parse-cancel';
 
 export type ActionItemAssigneeFields = {
   title?: string;
@@ -60,17 +61,21 @@ export class AssigneeResolverService {
     items: T[],
     members: ProjectMemberProfile[],
     options?: ResolveAssigneeOptions,
+    signal?: AbortSignal,
   ): Promise<T[]> {
     if (items.length === 0 || members.length === 0) return items;
+    throwIfAborted(signal);
 
     const prompt = this.buildPrompt(items, members);
     let parsed: AssigneeResolutionResult | null = null;
 
     try {
-      const response = await this.llm.invoke(prompt);
+      const response = await this.llm.invoke(prompt, { signal });
+      throwIfAborted(signal);
       parsed = this.parseResponse(response);
     } catch (err) {
       this.logger.warn(`Assignee resolver LLM call failed: ${err}`);
+      throwIfAborted(signal);
     }
 
     if (!parsed) {

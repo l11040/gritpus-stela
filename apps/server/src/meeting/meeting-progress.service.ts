@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Subject, Observable, map, finalize } from 'rxjs';
+import { ReplaySubject, Observable, map, finalize } from 'rxjs';
 
 export interface ParseProgressEvent {
   step:
@@ -21,21 +21,27 @@ export interface ParseProgressEvent {
 @Injectable()
 export class MeetingProgressService {
   private readonly logger = new Logger(MeetingProgressService.name);
-  private readonly subjects = new Map<string, Subject<ParseProgressEvent>>();
+  private readonly subjects = new Map<string, ReplaySubject<ParseProgressEvent>>();
+
+  private getOrCreateSubject(meetingId: string): ReplaySubject<ParseProgressEvent> {
+    let subject = this.subjects.get(meetingId);
+    if (!subject) {
+      // Replay recent progress so refresh/reconnect clients can restore current stage immediately.
+      subject = new ReplaySubject<ParseProgressEvent>(100);
+      this.subjects.set(meetingId, subject);
+    }
+    return subject;
+  }
 
   emit(meetingId: string, event: Omit<ParseProgressEvent, 'timestamp'>): void {
-    const subject = this.subjects.get(meetingId);
-    if (!subject) return;
+    const subject = this.getOrCreateSubject(meetingId);
     const fullEvent = { ...event, timestamp: Date.now() };
     this.logger.log(`[${meetingId}] ${event.step}: ${event.message}`);
     subject.next(fullEvent);
   }
 
   subscribe(meetingId: string): Observable<MessageEvent> {
-    if (!this.subjects.has(meetingId)) {
-      this.subjects.set(meetingId, new Subject<ParseProgressEvent>());
-    }
-    const subject = this.subjects.get(meetingId)!;
+    const subject = this.getOrCreateSubject(meetingId);
 
     return subject.asObservable().pipe(
       map(
@@ -49,9 +55,7 @@ export class MeetingProgressService {
   }
 
   start(meetingId: string): void {
-    if (!this.subjects.has(meetingId)) {
-      this.subjects.set(meetingId, new Subject<ParseProgressEvent>());
-    }
+    this.getOrCreateSubject(meetingId);
   }
 
   complete(meetingId: string): void {

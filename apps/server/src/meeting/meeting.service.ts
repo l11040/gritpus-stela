@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+  OnApplicationBootstrap,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MeetingMinutes, MeetingMinutesStatus } from './entities/meeting-minutes.entity';
@@ -11,10 +17,12 @@ import { ProjectService } from '../project/project.service';
 import { normalizeActionItemsDueDates } from './ai/due-date-normalizer';
 import { MeetingProgressService } from './meeting-progress.service';
 import type { ProjectMemberProfile } from './ai/assignee-resolver.service';
+import { ParseCancelledError, isParseCancelledError, throwIfAborted } from './ai/parse-cancel';
 
 @Injectable()
-export class MeetingService {
+export class MeetingService implements OnApplicationBootstrap {
   private readonly logger = new Logger(MeetingService.name);
+  private readonly parseAbortControllers = new Map<string, AbortController>();
 
   constructor(
     @InjectRepository(MeetingMinutes)
@@ -27,6 +35,21 @@ export class MeetingService {
     private readonly projectService: ProjectService,
     private readonly progressService: MeetingProgressService,
   ) {}
+
+  async onApplicationBootstrap(): Promise<void> {
+    const staleCount = await this.meetingRepo.count({
+      where: { status: MeetingMinutesStatus.PARSING },
+    });
+    if (staleCount === 0) return;
+
+    await this.meetingRepo.update(
+      { status: MeetingMinutesStatus.PARSING },
+      { status: MeetingMinutesStatus.FAILED },
+    );
+    this.logger.warn(
+      `Recovered ${staleCount} stale parsing meeting(s) after server restart.`,
+    );
+  }
 
   async create(
     projectId: string,
@@ -83,18 +106,57 @@ export class MeetingService {
     if (!meeting.rawContent) {
       throw new BadRequestException('파싱할 회의록 내용이 없습니다.');
     }
+    if (this.parseAbortControllers.has(meetingId)) {
+      throw new BadRequestException('이미 파싱 중인 회의록입니다.');
+    }
 
     await this.meetingRepo.update(meetingId, { status: MeetingMinutesStatus.PARSING });
     this.progressService.start(meetingId);
     this.progressService.emit(meetingId, { step: 'started', message: 'AI 파싱을 시작합니다...' });
 
+    const abortController = new AbortController();
+    this.parseAbortControllers.set(meetingId, abortController);
+
     // fire-and-forget
-    this.runParse(meetingId, meeting).catch(() => {});
+    this.runParse(meetingId, meeting, abortController.signal).catch(() => {});
   }
 
-  private async runParse(meetingId: string, meeting: MeetingMinutes): Promise<void> {
+  async cancelParse(meetingId: string): Promise<{ cancelled: boolean; message: string }> {
+    const meeting = await this.findOne(meetingId);
+    const controller = this.parseAbortControllers.get(meetingId);
+    if (!controller) {
+      if (meeting.status === MeetingMinutesStatus.PARSING) {
+        await this.meetingRepo.update(meetingId, { status: MeetingMinutesStatus.FAILED });
+        this.progressService.start(meetingId);
+        this.progressService.emit(meetingId, {
+          step: 'failed',
+          message: '서버 재시작으로 파싱 컨텍스트가 유실되어 중단 처리되었습니다.',
+        });
+        this.progressService.complete(meetingId);
+        return {
+          cancelled: true,
+          message: '파싱 컨텍스트 유실 상태를 중단 처리했습니다.',
+        };
+      }
+      return { cancelled: false, message: '중단할 파싱 작업이 없습니다.' };
+    }
+
+    if (!controller.signal.aborted) {
+      controller.abort(new ParseCancelledError('사용자 요청으로 파싱이 중단되었습니다.'));
+    }
+
+    return { cancelled: true, message: '파싱 중단 요청을 처리했습니다.' };
+  }
+
+  private async runParse(
+    meetingId: string,
+    meeting: MeetingMinutes,
+    signal: AbortSignal,
+  ): Promise<void> {
     try {
+      throwIfAborted(signal);
       const projectMembers = await this.projectService.getMembers(meeting.projectId);
+      throwIfAborted(signal);
       const memberProfiles = this.toMemberProfiles(projectMembers);
 
       this.progressService.emit(meetingId, { step: 'analyzing', message: '회의록을 분석하고 있습니다...' });
@@ -106,13 +168,18 @@ export class MeetingService {
         meeting.rawContent,
         meeting.createdAt,
         onAgentProgress,
+        signal,
       );
+      throwIfAborted(signal);
 
       this.progressService.emit(meetingId, { step: 'resolving_assignees', message: '담당자를 매칭하고 있습니다...' });
       const matchedActionItems = await this.aiService.resolveActionItemsAssignees(
         result.actionItems,
         memberProfiles,
+        undefined,
+        signal,
       );
+      throwIfAborted(signal);
       const normalizedActionItems = normalizeActionItemsDueDates(
         matchedActionItems,
         meeting.createdAt,
@@ -124,7 +191,9 @@ export class MeetingService {
         meeting.rawContent,
         normalizedActionItems,
         meeting.createdAt,
+        signal,
       );
+      throwIfAborted(signal);
 
       await this.meetingRepo.update(meetingId, {
         parsedActionItems: normalizedActionItems as any,
@@ -134,10 +203,20 @@ export class MeetingService {
 
       this.progressService.emit(meetingId, { step: 'completed', message: '파싱이 완료되었습니다!' });
     } catch (err) {
-      this.logger.error(`Parse failed for meeting ${meetingId}`, err);
-      await this.meetingRepo.update(meetingId, { status: MeetingMinutesStatus.FAILED });
-      this.progressService.emit(meetingId, { step: 'failed', message: 'AI 파싱에 실패했습니다.' });
+      if (isParseCancelledError(err)) {
+        this.logger.log(`Parse cancelled for meeting ${meetingId}`);
+        await this.meetingRepo.update(meetingId, { status: MeetingMinutesStatus.FAILED });
+        this.progressService.emit(meetingId, {
+          step: 'failed',
+          message: err.message || '사용자 요청으로 파싱이 중단되었습니다.',
+        });
+      } else {
+        this.logger.error(`Parse failed for meeting ${meetingId}`, err);
+        await this.meetingRepo.update(meetingId, { status: MeetingMinutesStatus.FAILED });
+        this.progressService.emit(meetingId, { step: 'failed', message: 'AI 파싱에 실패했습니다.' });
+      }
     } finally {
+      this.parseAbortControllers.delete(meetingId);
       this.progressService.complete(meetingId);
     }
   }

@@ -4,6 +4,7 @@ import type { StructuredTool } from '@langchain/core/tools';
 import { DesktopLLM } from './desktop-llm';
 import { createMeetingTools } from './tools';
 import { MEETING_SYSTEM_PROMPT, buildReactPrompt } from './prompts';
+import { throwIfAborted } from './parse-cancel';
 import { ProjectService } from '../../project/project.service';
 import { BoardService } from '../../board/board.service';
 import type { ParsedMeetingResult, AgentProgressCallback } from '../meeting-ai.service';
@@ -33,23 +34,46 @@ export class MeetingAgentService {
     rawContent: string,
     referenceDate?: string | Date,
     onProgress?: AgentProgressCallback,
+    signal?: AbortSignal,
   ): Promise<ParsedMeetingResult> {
     const tools = createMeetingTools(this.projectService, this.boardService);
 
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(
-        () => reject(new Error('Agent execution timed out')),
-        AGENT_TIMEOUT_MS,
-      ),
+    const timeoutController = new AbortController();
+    const timeout = setTimeout(
+      () => timeoutController.abort(new Error('Agent execution timed out')),
+      AGENT_TIMEOUT_MS,
     );
+    const combinedController = new AbortController();
+    const abortFromInputSignal = () => {
+      combinedController.abort(signal?.reason);
+    };
+    const abortFromTimeout = () => {
+      combinedController.abort(timeoutController.signal.reason);
+    };
+
+    if (signal) {
+      if (signal.aborted) {
+        abortFromInputSignal();
+      } else {
+        signal.addEventListener('abort', abortFromInputSignal, { once: true });
+      }
+    }
+    timeoutController.signal.addEventListener('abort', abortFromTimeout, { once: true });
 
     try {
-      const result = await Promise.race([
-        this.runReactLoop(tools, projectId, rawContent, referenceDate, onProgress),
-        timeoutPromise,
-      ]);
+      const result = await this.runReactLoop(
+        tools,
+        projectId,
+        rawContent,
+        referenceDate,
+        onProgress,
+        combinedController.signal,
+      );
       return result;
     } catch (err) {
+      if (combinedController.signal.aborted) {
+        throwIfAborted(combinedController.signal);
+      }
       this.logger.error(`Agent execution failed: ${err}`);
       if (err instanceof HttpException) throw err;
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -57,6 +81,10 @@ export class MeetingAgentService {
         `AI 에이전트 실행 실패: ${message}`,
         HttpStatus.BAD_GATEWAY,
       );
+    } finally {
+      clearTimeout(timeout);
+      timeoutController.signal.removeEventListener('abort', abortFromTimeout);
+      signal?.removeEventListener('abort', abortFromInputSignal);
     }
   }
 
@@ -66,6 +94,7 @@ export class MeetingAgentService {
     rawContent: string,
     referenceDate?: string | Date,
     onProgress?: AgentProgressCallback,
+    signal?: AbortSignal,
   ): Promise<ParsedMeetingResult> {
     const toolMap = new Map(tools.map((t) => [t.name, t]));
     const scratchpad: string[] = [];
@@ -89,6 +118,7 @@ ${rawContent}
 Please analyze the meeting minutes above. First use the tools to gather project context (members, etc.), then produce the final JSON output.`;
 
     for (let i = 0; i < MAX_ITERATIONS; i++) {
+      throwIfAborted(signal);
       const prompt = buildReactPrompt(tools, input, scratchpad.join('\n'));
 
       this.logger.log(`Agent iteration ${i + 1}/${MAX_ITERATIONS}`);
@@ -98,7 +128,8 @@ Please analyze the meeting minutes above. First use the tools to gather project 
         iteration: i + 1,
         maxIterations: MAX_ITERATIONS,
       });
-      const response = await this.llm.invoke(prompt);
+      const response = await this.llm.invoke(prompt, { signal });
+      throwIfAborted(signal);
 
       const finalAnswer = this.extractFinalAnswer(response);
       if (finalAnswer) {
@@ -133,9 +164,11 @@ Please analyze the meeting minutes above. First use the tools to gather project 
         });
         const toolInput = JSON.parse(action.input);
         const observation = await tool.invoke(toolInput);
+        throwIfAborted(signal);
         scratchpad.push(`${response}\nObservation: ${observation}`);
         this.logger.log(`Tool ${action.name} executed successfully`);
       } catch (err) {
+        throwIfAborted(signal);
         const message = err instanceof Error ? err.message : 'Unknown error';
         scratchpad.push(
           `${response}\nObservation: Error executing tool: ${message}`,

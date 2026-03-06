@@ -81,6 +81,13 @@ export class MeetingController {
     return this.meetingService.parseAsync(meetingId);
   }
 
+  @Post(':meetingId/parse/cancel')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ summary: '진행 중인 AI 파싱 중단' })
+  cancelParse(@Param('meetingId') meetingId: string) {
+    return this.meetingService.cancelParse(meetingId);
+  }
+
   @Sse(':meetingId/parse/events')
   @ApiOperation({ summary: '파싱 진행 상황 SSE 스트림' })
   parseEvents(@Param('meetingId') meetingId: string): Observable<MessageEvent> {

@@ -44,19 +44,22 @@ export class MeetingAiService {
     rawContent: string,
     referenceDate?: string | Date,
     onProgress?: AgentProgressCallback,
+    signal?: AbortSignal,
   ): Promise<ParsedMeetingResult> {
-    return this.agentService.parseMinutes(projectId, rawContent, referenceDate, onProgress);
+    return this.agentService.parseMinutes(projectId, rawContent, referenceDate, onProgress, signal);
   }
 
   async resolveActionItemsAssignees<T extends ActionItemAssigneeFields>(
     actionItems: T[],
     projectMembers: ProjectMemberProfile[],
     options?: ResolveAssigneeOptions,
+    signal?: AbortSignal,
   ): Promise<T[]> {
     return this.assigneeResolverService.resolveWithLlm(
       actionItems,
       projectMembers,
       options,
+      signal,
     );
   }
 
@@ -65,12 +68,14 @@ export class MeetingAiService {
     rawContent: string,
     actionItems: T[],
     referenceDate?: string | Date,
+    signal?: AbortSignal,
   ): Promise<string> {
     return this.meetingSummaryService.summarize(
       meetingTitle,
       rawContent,
       actionItems,
       referenceDate,
+      signal,
     );
   }
 }

@@ -26,7 +26,19 @@ export class DesktopLLM extends LLM {
     _runManager?: CallbackManagerForLLMRun,
   ): Promise<string> {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    const timeout = setTimeout(() => controller.abort(new Error('LLM request timed out')), this.timeoutMs);
+    const externalSignal = _options?.signal;
+    const handleExternalAbort = () => {
+      controller.abort(externalSignal?.reason ?? new Error('Request aborted'));
+    };
+
+    if (externalSignal) {
+      if (externalSignal.aborted) {
+        handleExternalAbort();
+      } else {
+        externalSignal.addEventListener('abort', handleExternalAbort, { once: true });
+      }
+    }
 
     try {
       const res = await fetch(`${this.desktopUrl}/chat`, {
@@ -43,8 +55,16 @@ export class DesktopLLM extends LLM {
 
       const data = (await res.json()) as { response: string; durationMs: number };
       return data.response;
+    } catch (err) {
+      if (externalSignal?.aborted) {
+        throw externalSignal.reason instanceof Error
+          ? externalSignal.reason
+          : new Error('Request aborted');
+      }
+      throw err;
     } finally {
       clearTimeout(timeout);
+      externalSignal?.removeEventListener('abort', handleExternalAbort);
     }
   }
 }

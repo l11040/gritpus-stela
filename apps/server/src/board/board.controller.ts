@@ -21,6 +21,7 @@ import {
   UpdateCardDto,
   MoveCardDto,
   BatchCreateCardDto,
+  ReorderColumnCardsDto,
   CreateLabelDto,
   UpdateLabelDto,
   ExternalBatchCreateDto,
@@ -137,6 +138,12 @@ export class BoardController {
   @ApiOperation({ summary: '카드 이동 (드래그앤드롭)' })
   moveCard(@Param('cardId') cardId: string, @Body() dto: MoveCardDto) {
     return this.boardService.moveCard(cardId, dto);
+  }
+
+  @Patch(':boardId/cards/reorder/column')
+  @ApiOperation({ summary: '컬럼 카드 순서 일괄 변경' })
+  reorderColumnCards(@Body() dto: ReorderColumnCardsDto) {
+    return this.boardService.reorderColumnCards(dto);
   }
 
   @Post(':boardId/cards/batch')

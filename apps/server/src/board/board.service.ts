@@ -16,6 +16,7 @@ import {
   UpdateCardDto,
   MoveCardDto,
   BatchCreateCardDto,
+  ReorderColumnCardsDto,
   CreateLabelDto,
   UpdateLabelDto,
   ExternalBatchCreateDto,
@@ -269,6 +270,17 @@ export class BoardService {
     });
 
     return this.getCard(cardId);
+  }
+
+  async reorderColumnCards(dto: ReorderColumnCardsDto): Promise<void> {
+    await this.cardRepo.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(Card);
+      await Promise.all(
+        dto.cardIds.map((cardId, index) =>
+          repo.update(cardId, { columnId: dto.columnId, position: index }),
+        ),
+      );
+    });
   }
 
   async batchCreateCards(dto: BatchCreateCardDto): Promise<Card[]> {

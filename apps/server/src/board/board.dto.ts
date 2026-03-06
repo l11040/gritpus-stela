@@ -150,6 +150,17 @@ export class MoveCardDto {
   position: number;
 }
 
+export class ReorderColumnCardsDto {
+  @ApiProperty({ description: '대상 컬럼 ID' })
+  @IsUUID()
+  columnId: string;
+
+  @ApiProperty({ type: [String], description: '정렬된 카드 ID 목록' })
+  @IsArray()
+  @IsUUID('4', { each: true })
+  cardIds: string[];
+}
+
 export class BatchCreateCardDto {
   @ApiProperty({ type: [CreateCardDto] })
   @IsArray()

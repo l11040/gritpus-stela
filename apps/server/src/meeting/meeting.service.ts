@@ -18,6 +18,7 @@ import { normalizeActionItemsDueDates } from './ai/due-date-normalizer';
 import { MeetingProgressService } from './meeting-progress.service';
 import type { ProjectMemberProfile } from './ai/assignee-resolver.service';
 import { ParseCancelledError, isParseCancelledError, throwIfAborted } from './ai/parse-cancel';
+import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class MeetingService implements OnApplicationBootstrap {
@@ -34,6 +35,7 @@ export class MeetingService implements OnApplicationBootstrap {
     private readonly boardService: BoardService,
     private readonly projectService: ProjectService,
     private readonly progressService: MeetingProgressService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -202,6 +204,13 @@ export class MeetingService implements OnApplicationBootstrap {
       });
 
       this.progressService.emit(meetingId, { step: 'completed', message: '파싱이 완료되었습니다!' });
+
+      // 회의록 작성자에게 알림 전송
+      await this.notificationService.notifyMeetingParsed(
+        meetingId,
+        meeting.title,
+        meeting.createdById,
+      );
     } catch (err) {
       if (isParseCancelledError(err)) {
         this.logger.log(`Parse cancelled for meeting ${meetingId}`);

@@ -6,6 +6,7 @@ import { BoardColumn } from './entities/column.entity';
 import { Card } from './entities/card.entity';
 import { Label } from './entities/label.entity';
 import { User } from '../auth/entities/user.entity';
+import { NotificationService } from '../notification/notification.service';
 import {
   CreateBoardDto,
   UpdateBoardDto,
@@ -41,6 +42,7 @@ export class BoardService {
     private readonly labelRepo: Repository<Label>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    private readonly notificationService: NotificationService,
   ) {}
 
   // ─── Board CRUD ───
@@ -140,6 +142,15 @@ export class BoardService {
       await this.cardRepo.save(saved);
     }
 
+    // 새 카드 생성 시 담당자에게 알림 전송
+    if (assigneeIds.length > 0) {
+      await this.notificationService.notifyCardAssigned(
+        saved.id,
+        saved.title,
+        assigneeIds,
+      );
+    }
+
     return this.getCard(saved.id);
   }
 
@@ -183,6 +194,9 @@ export class BoardService {
     const card = await this.getCard(cardId);
     const assigneeIds = this.normalizeAssigneeIds(dto.assigneeIds, dto.assigneeId);
 
+    // 기존 담당자 ID 추출
+    const previousAssigneeIds = new Set(card.assignees?.map((a) => a.id) || []);
+
     if (dto.labelIds !== undefined) {
       const labels = dto.labelIds.length
         ? await this.labelRepo.find({ where: { id: In(dto.labelIds) } })
@@ -193,6 +207,16 @@ export class BoardService {
       const assignees = await this.resolveAssignees(assigneeIds);
       card.assignees = assignees;
       card.assigneeId = assigneeIds[0] ?? null;
+
+      // 새로 추가된 담당자에게만 알림 전송
+      const newAssigneeIds = assigneeIds.filter((id) => !previousAssigneeIds.has(id));
+      if (newAssigneeIds.length > 0) {
+        await this.notificationService.notifyCardAssigned(
+          cardId,
+          card.title,
+          newAssigneeIds,
+        );
+      }
     }
 
     const { labelIds, assigneeId: _assigneeId, assigneeIds: _assigneeIds, ...rest } = dto;

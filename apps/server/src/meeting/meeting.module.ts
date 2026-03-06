@@ -12,6 +12,7 @@ import { BoardColumn } from '../board/entities/column.entity';
 import { DocumentModule } from '../document/document.module';
 import { BoardModule } from '../board/board.module';
 import { ProjectModule } from '../project/project.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { ProjectModule } from '../project/project.module';
     DocumentModule,
     BoardModule,
     ProjectModule,
+    NotificationModule,
   ],
   controllers: [MeetingController],
   providers: [

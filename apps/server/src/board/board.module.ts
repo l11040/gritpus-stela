@@ -7,11 +7,13 @@ import { BoardColumn } from './entities/column.entity';
 import { Card } from './entities/card.entity';
 import { Label } from './entities/label.entity';
 import { AuthModule } from '../auth/auth.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Board, BoardColumn, Card, Label]),
     AuthModule,
+    NotificationModule,
   ],
   controllers: [BoardController, LabelController, ExternalController],
   providers: [BoardService],

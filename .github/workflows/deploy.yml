@@ -7,6 +7,7 @@ on:
       - 'apps/**'
       - 'packages/**'
       - 'infra/**'
+      - '.github/workflows/**'
 
 jobs:
   check-changes:

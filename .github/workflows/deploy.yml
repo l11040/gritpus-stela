@@ -1,6 +1,7 @@
 name: Selective Deploy
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
@@ -13,15 +14,17 @@ jobs:
   check-changes:
     runs-on: ubuntu-latest
     outputs:
-      server: ${{ steps.filter.outputs.server }}
-      web: ${{ steps.filter.outputs.web }}
-      desktop: ${{ steps.filter.outputs.desktop }}
-      infra: ${{ steps.filter.outputs.infra }}
+      server: ${{ steps.result.outputs.server }}
+      web: ${{ steps.result.outputs.web }}
+      desktop: ${{ steps.result.outputs.desktop }}
+      infra: ${{ steps.result.outputs.infra }}
+      manual: ${{ steps.result.outputs.manual }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: dorny/paths-filter@v3
         id: filter
+        if: github.event_name == 'push'
         with:
           filters: |
             server:
@@ -35,6 +38,22 @@ jobs:
               - 'packages/shared/**'
             infra:
               - 'infra/**'
+
+      - id: result
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "server=true" >> $GITHUB_OUTPUT
+            echo "web=true" >> $GITHUB_OUTPUT
+            echo "desktop=true" >> $GITHUB_OUTPUT
+            echo "infra=false" >> $GITHUB_OUTPUT
+            echo "manual=true" >> $GITHUB_OUTPUT
+          else
+            echo "server=${{ steps.filter.outputs.server }}" >> $GITHUB_OUTPUT
+            echo "web=${{ steps.filter.outputs.web }}" >> $GITHUB_OUTPUT
+            echo "desktop=${{ steps.filter.outputs.desktop }}" >> $GITHUB_OUTPUT
+            echo "infra=${{ steps.filter.outputs.infra }}" >> $GITHUB_OUTPUT
+            echo "manual=false" >> $GITHUB_OUTPUT
+          fi
 
   deploy:
     needs: check-changes

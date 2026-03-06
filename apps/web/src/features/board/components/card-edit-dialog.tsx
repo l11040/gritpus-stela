@@ -275,13 +275,13 @@ export function CardEditDialog({
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="제목 없음"
-                  className="mt-2 h-auto border-none px-0 text-3xl font-semibold tracking-tight shadow-none focus-visible:ring-0"
+                  className="mt-2 h-auto border-none px-0 text-4xl leading-tight font-semibold tracking-tight shadow-none focus-visible:ring-0"
                 />
 
                 <div className="mt-6">
                   <Label className="text-xs font-medium text-muted-foreground">속성</Label>
                   <div className="mt-2 space-y-1">
-                    <div className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/50">
+                    <div className="flex items-center gap-3 rounded-md px-2 py-1 hover:bg-muted/50">
                       <div className="flex w-24 shrink-0 items-center gap-2 text-xs text-muted-foreground">
                         <UserRound className="size-3.5" />
                         <span>담당자</span>
@@ -315,7 +315,7 @@ export function CardEditDialog({
                   </div>
                 </div>
 
-                    <div className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/50">
+                    <div className="flex items-center gap-3 rounded-md px-2 py-1 hover:bg-muted/50">
                       <div className="flex w-24 shrink-0 items-center gap-2 text-xs text-muted-foreground">
                         <CalendarDays className="size-3.5" />
                         <span>기한</span>
@@ -366,7 +366,7 @@ export function CardEditDialog({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/50">
+                    <div className="flex items-center gap-3 rounded-md px-2 py-1 hover:bg-muted/50">
                       <div className="flex w-24 shrink-0 items-center gap-2 text-xs text-muted-foreground">
                         <Flag className="size-3.5" />
                         <span>우선순위</span>

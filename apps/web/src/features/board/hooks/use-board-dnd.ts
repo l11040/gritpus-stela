@@ -25,6 +25,7 @@ function clamp(value: number, max: number): number {
 export function useBoardDnd(
   setBoard: React.Dispatch<React.SetStateAction<Board | null>>,
   moveCard: (cardId: string, columnId: string, position: number) => Promise<void>,
+  reorderColumnCards: (columnId: string, cardIds: string[]) => Promise<void>,
   refetchBoard: () => void,
   selectedCardIds?: Set<string>,
 ) {
@@ -33,6 +34,8 @@ export function useBoardDnd(
   const draggedCardIdsRef = useRef<Set<string>>(new Set());
   // 멀티드래그 시 보드에서 제거한 companion 카드를 보관
   const companionsRef = useRef<CardItem[]>([]);
+  // 멀티드래그 시 선택된 카드들의 원래 보드 순서 (순서 유지용)
+  const originalOrderRef = useRef<string[]>([]);
 
   const boardRef = useRef<Board | null>(null);
 
@@ -68,6 +71,18 @@ export function useBoardDnd(
         // companion 카드를 보드 데이터에서 제거하여 dnd-kit 간섭 방지
         updateBoard((prev) => {
           if (!prev) return prev;
+
+          // 선택된 카드들의 원래 보드 순서를 기록 (컬럼 순서 → 컬럼 내 카드 순서)
+          const order: string[] = [];
+          for (const col of prev.columns) {
+            for (const c of col.cards) {
+              if (selectedCardIds.has(c.id)) {
+                order.push(c.id);
+              }
+            }
+          }
+          originalOrderRef.current = order;
+
           const removed: CardItem[] = [];
           const newColumns = prev.columns.map((col) => ({
             ...col,
@@ -85,6 +100,7 @@ export function useBoardDnd(
       } else {
         draggedCardIdsRef.current = new Set([card.id]);
         companionsRef.current = [];
+        originalOrderRef.current = [];
       }
     },
     [selectedCardIds, updateBoard],
@@ -149,10 +165,12 @@ export function useBoardDnd(
     (event: DragEndEvent) => {
       const { active, over } = event;
       const companions = companionsRef.current;
+      const originalOrder = originalOrderRef.current;
       setActiveCard(null);
       setActiveColumnId(null);
       draggedCardIdsRef.current = new Set();
       companionsRef.current = [];
+      originalOrderRef.current = [];
 
       if (!over) {
         refetchBoard();
@@ -185,43 +203,62 @@ export function useBoardDnd(
       const isMultiDrag = companions.length > 0;
 
       if (isMultiDrag) {
-        // ── 멀티드래그: 주 카드를 원래 위치에서 제거 후 companions와 함께 타겟 컬럼에 삽입 ──
-        let activeCardData: CardItem | undefined;
-        for (const col of newColumns) {
-          const idx = col.cards.findIndex((c) => c.id === activeId);
+        // ── 멀티드래그 ──
+        // active 카드의 현재 위치 찾기 (handleDragOver가 크로스컬럼 시 이동시킴)
+        let activeColIndex = -1;
+        let activeCardIndex = -1;
+        for (let ci = 0; ci < newColumns.length; ci++) {
+          const idx = newColumns[ci].cards.findIndex((c) => c.id === activeId);
           if (idx >= 0) {
-            [activeCardData] = col.cards.splice(idx, 1);
+            activeColIndex = ci;
+            activeCardIndex = idx;
             break;
           }
         }
+        if (activeColIndex < 0 || activeCardIndex < 0) {
+          refetchBoard();
+          return;
+        }
+
+        const targetCol = newColumns[activeColIndex];
+        const targetColumnId = targetCol.id;
+
+        // 크로스컬럼 여부: 드래그 시작 컬럼과 현재 컬럼 비교
+        const startColumnId = active.data.current?.columnId as string | undefined;
+        const wasCrossColumn = startColumnId != null && startColumnId !== targetColumnId;
+
+        // 삽입 위치 결정
+        let insertAt: number;
+        if (wasCrossColumn) {
+          // 크로스컬럼: handleDragOver가 배치한 위치를 그대로 사용
+          insertAt = activeCardIndex;
+        } else {
+          // 같은 컬럼: overId 기준으로 위치 계산 (arrayMove 시맨틱)
+          const overCardIndex = targetCol.cards.findIndex((c) => c.id === overId);
+          insertAt = overCardIndex >= 0 ? overCardIndex : targetCol.cards.length;
+        }
+
+        // active 카드를 현재 위치에서 제거
+        const [activeCardData] = targetCol.cards.splice(activeCardIndex, 1);
         if (!activeCardData) {
           refetchBoard();
           return;
         }
 
-        const targetCol = newColumns.find((c) => c.id === overColumn.id);
-        if (!targetCol) {
-          refetchBoard();
-          return;
-        }
-
-        // over 카드 위치 기준으로 삽입 위치 결정
-        const overCardIndex = targetCol.cards.findIndex((c) => c.id === overId);
-        const insertAt = overCardIndex >= 0 ? overCardIndex : targetCol.cards.length;
-
-        // 주 카드 + companions를 한꺼번에 삽입
+        // 주 카드 + companions를 원래 보드 순서대로 정렬하여 삽입
         const allCards = [activeCardData, ...companions];
+        const orderMap = new Map(originalOrder.map((id, i) => [id, i]));
+        allCards.sort((a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0));
         targetCol.cards.splice(insertAt, 0, ...allCards);
 
         const newBoard = { ...prev, columns: newColumns };
         boardRef.current = newBoard;
         setBoard(newBoard);
 
-        // API: 각 카드를 타겟 컬럼의 최종 위치로 이동
-        const promises = allCards.map((card, i) =>
-          moveCard(card.id, overColumn.id, insertAt + i),
-        );
-        Promise.allSettled(promises).then(() => refetchBoard());
+        // API: 컬럼 전체 카드 순서를 원자적으로 변경
+        reorderColumnCards(targetColumnId, targetCol.cards.map((c) => c.id))
+          .then(() => refetchBoard())
+          .catch(() => refetchBoard());
       } else {
         // ── 단일 카드 드래그 ──
         const activeColumn = findColumnByCardId(prev.columns, activeId);
@@ -292,7 +329,7 @@ export function useBoardDnd(
         });
       }
     },
-    [moveCard, refetchBoard, setBoard],
+    [moveCard, reorderColumnCards, refetchBoard, setBoard],
   );
 
   return {

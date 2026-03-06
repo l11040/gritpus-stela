@@ -4,7 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   DndContext,
   DragOverlay,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   KeyboardSensor,
   closestCorners,
   useSensor,
@@ -111,6 +112,7 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
     deleteCards,
     deleteColumn,
     moveCard,
+    reorderColumnCards,
   } = useBoardCards(projectId, boardId, refetch);
   const [editCard, setEditCard] = useState<CardItem | null>(null);
   const [members, setMembers] = useState<ProjectMember[]>([]);
@@ -128,8 +130,11 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
   const selectedCount = selectedCardIds.size;
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
       activationConstraint: { distance: 8 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 5 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
@@ -143,7 +148,7 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
     handleDragStart,
     handleDragOver,
     handleDragEnd,
-  } = useBoardDnd(setBoard, moveCard, refetch, selectedCardIds);
+  } = useBoardDnd(setBoard, moveCard, reorderColumnCards, refetch, selectedCardIds);
 
   // boardRef를 React 상태와 동기화 (초기 로드, refetch 시)
   useEffect(() => {
@@ -188,29 +193,37 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
   }, [activeCard, isSelecting]);
 
   useEffect(() => {
-    const updateCanvasMinHeight = () => {
-      const container = boardContainerRef.current;
-      if (!container) return;
+    const container = boardContainerRef.current;
+    if (!container) return;
 
-      const rect = container.getBoundingClientRect();
-      const viewportHeight = window.innerHeight;
-      // 대시보드 컨테이너 하단 여백(py-6)을 감안해 드래그 영역을 화면에 맞춤
-      const available = Math.max(320, Math.floor(viewportHeight - rect.top - 24));
+    const updateCanvasMinHeight = () => {
+      const containerHeight = Math.floor(container.clientHeight);
+      const available = Math.max(320, containerHeight);
       setCanvasMinHeight((prev) => (prev === available ? prev : available));
     };
 
     updateCanvasMinHeight();
     window.addEventListener('resize', updateCanvasMinHeight);
+    window.addEventListener('orientationchange', updateCanvasMinHeight);
+    window.visualViewport?.addEventListener('resize', updateCanvasMinHeight);
+    const containerResizeObserver =
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(updateCanvasMinHeight)
+        : null;
+    containerResizeObserver?.observe(container);
     const raf = requestAnimationFrame(updateCanvasMinHeight);
 
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', updateCanvasMinHeight);
+      window.removeEventListener('orientationchange', updateCanvasMinHeight);
+      window.visualViewport?.removeEventListener('resize', updateCanvasMinHeight);
+      containerResizeObserver?.disconnect();
     };
   }, [boardId]);
 
   const getScrollContainer = useCallback((): HTMLElement | null => {
-    return boardCanvasRef.current?.closest('main') ?? null;
+    return boardCanvasRef.current;
   }, []);
 
   const autoScrollRafRef = useRef<number>(0);
@@ -259,7 +272,7 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
     const canvas = boardCanvasRef.current;
     let scrolled = false;
 
-    // 수직 자동 스크롤 (main 컨테이너)
+    // 수직 자동 스크롤 (보드 캔버스)
     if (scrollContainer) {
       const rect = scrollContainer.getBoundingClientRect();
       if (y < rect.top + AUTO_SCROLL_EDGE && scrollContainer.scrollTop > 0) {
@@ -461,8 +474,12 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
           <ContextMenuTrigger asChild disabled={selectedCount === 0}>
             <div
               ref={boardCanvasRef}
-              className="flex min-h-full flex-1 select-none gap-3 overflow-x-auto px-8"
-              style={canvasMinHeight > 0 ? { minHeight: `${canvasMinHeight}px` } : undefined}
+              className="scrollbar-hide flex min-h-full flex-1 select-none gap-3 overflow-auto px-8"
+              style={
+                canvasMinHeight > 0
+                  ? { minHeight: `${canvasMinHeight}px`, height: `${canvasMinHeight}px` }
+                  : undefined
+              }
               onPointerDown={handleSelectionStart}
               onPointerUp={handleCanvasPointerUp}
             >

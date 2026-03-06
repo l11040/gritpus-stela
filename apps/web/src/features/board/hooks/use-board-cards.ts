@@ -121,5 +121,16 @@ export function useBoardCards(
     [projectId, boardId],
   );
 
-  return { addColumn, updateColumn, addCard, updateCard, deleteCard, deleteCards, deleteColumn, moveCard };
+  const reorderColumnCards = useCallback(
+    async (columnId: string, cardIds: string[]) => {
+      await fetcher({
+        url: `/projects/${projectId}/boards/${boardId}/cards/reorder/column`,
+        method: 'PATCH',
+        data: { columnId, cardIds },
+      });
+    },
+    [projectId, boardId],
+  );
+
+  return { addColumn, updateColumn, addCard, updateCard, deleteCard, deleteCards, deleteColumn, moveCard, reorderColumnCards };
 }

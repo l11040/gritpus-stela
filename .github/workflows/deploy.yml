@@ -1,63 +1,12 @@
-name: Selective Deploy
+name: Deploy
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths:
-      - 'apps/**'
-      - 'packages/**'
-      - 'infra/**'
-      - '.github/workflows/**'
 
 jobs:
-  check-changes:
-    runs-on: ubuntu-latest
-    outputs:
-      server: ${{ steps.result.outputs.server }}
-      web: ${{ steps.result.outputs.web }}
-      desktop: ${{ steps.result.outputs.desktop }}
-      infra: ${{ steps.result.outputs.infra }}
-      manual: ${{ steps.result.outputs.manual }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dorny/paths-filter@v3
-        id: filter
-        if: github.event_name == 'push'
-        with:
-          filters: |
-            server:
-              - 'apps/server/**'
-              - 'packages/shared/**'
-            web:
-              - 'apps/web/**'
-              - 'packages/shared/**'
-            desktop:
-              - 'apps/desktop/**'
-              - 'packages/shared/**'
-            infra:
-              - 'infra/**'
-
-      - id: result
-        run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "server=true" >> $GITHUB_OUTPUT
-            echo "web=true" >> $GITHUB_OUTPUT
-            echo "desktop=true" >> $GITHUB_OUTPUT
-            echo "infra=false" >> $GITHUB_OUTPUT
-            echo "manual=true" >> $GITHUB_OUTPUT
-          else
-            echo "server=${{ steps.filter.outputs.server }}" >> $GITHUB_OUTPUT
-            echo "web=${{ steps.filter.outputs.web }}" >> $GITHUB_OUTPUT
-            echo "desktop=${{ steps.filter.outputs.desktop }}" >> $GITHUB_OUTPUT
-            echo "infra=${{ steps.filter.outputs.infra }}" >> $GITHUB_OUTPUT
-            echo "manual=false" >> $GITHUB_OUTPUT
-          fi
-
   deploy:
-    needs: check-changes
-    if: ${{ needs.check-changes.outputs.server == 'true' || needs.check-changes.outputs.web == 'true' || needs.check-changes.outputs.desktop == 'true' || needs.check-changes.outputs.infra == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -88,7 +37,7 @@ jobs:
           target: "~/gritpus-stela"
           rm: false
 
-      - name: Deploy Selected Services
+      - name: Deploy
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -100,51 +49,15 @@ jobs:
           script: |
             cd ~/gritpus-stela/infra
 
-            # .env 확인
             if [ ! -f .env ]; then
               echo "Error: .env file not found!"
               exit 1
             fi
 
-            # traefik network 생성
             docker network create traefik-public 2>/dev/null || true
 
-            # 인프라 변경 시: 전체 재시작
-            if [ "${{ needs.check-changes.outputs.infra }}" == "true" ]; then
-              echo "Infra changed. Redeploying everything..."
-              docker compose down --remove-orphans
-              docker compose build --no-cache
-              docker compose up -d
-              exit 0
-            fi
+            docker compose build --no-cache
+            docker compose up -d --force-recreate
 
-            # 앱별 선택적 배포
-            SERVICES_TO_DEPLOY=""
-
-            if [ "${{ needs.check-changes.outputs.server }}" == "true" ]; then
-              echo "Server changed. Adding to deploy list..."
-              SERVICES_TO_DEPLOY="$SERVICES_TO_DEPLOY server"
-            fi
-
-            if [ "${{ needs.check-changes.outputs.web }}" == "true" ]; then
-              echo "Web changed. Adding to deploy list..."
-              SERVICES_TO_DEPLOY="$SERVICES_TO_DEPLOY web"
-            fi
-
-            if [ "${{ needs.check-changes.outputs.desktop }}" == "true" ]; then
-              echo "Desktop changed. Adding to deploy list..."
-              SERVICES_TO_DEPLOY="$SERVICES_TO_DEPLOY desktop"
-            fi
-
-            # 변경된 서비스만 재배포
-            if [ ! -z "$SERVICES_TO_DEPLOY" ]; then
-              echo "Deploying services: $SERVICES_TO_DEPLOY"
-              docker compose build --no-cache $SERVICES_TO_DEPLOY
-              docker compose up -d --no-deps --force-recreate $SERVICES_TO_DEPLOY
-            else
-              echo "No services to deploy."
-            fi
-
-            # 정리
             docker system prune -f
             docker compose ps

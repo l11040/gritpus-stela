@@ -63,6 +63,7 @@ interface RichEditorProps {
   className?: string;
   editable?: boolean;
   showCharacterCount?: boolean;
+  inputFormat?: 'auto' | 'html' | 'markdown';
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -536,6 +537,7 @@ export function RichEditor({
   className,
   editable = true,
   showCharacterCount = false,
+  inputFormat = 'auto',
 }: RichEditorProps) {
   const exts = createExtensionsWithPlaceholder(placeholder);
 
@@ -550,7 +552,7 @@ export function RichEditor({
     <EditorRoot>
       <EditorContent
         extensions={exts}
-        initialContent={defaultValue ? parseInitialContent(defaultValue) : undefined}
+        initialContent={defaultValue ? parseInitialContent(defaultValue, inputFormat) : undefined}
         editable={editable}
         onUpdate={handleUpdate}
         editorProps={{
@@ -659,10 +661,132 @@ export function RichEditor({
   );
 }
 
-function parseInitialContent(html: string): EditorContentProps['initialContent'] {
-  if (!html || html.trim() === '') return undefined;
-  if (!/<[a-z][\s\S]*>/i.test(html)) {
-    const paragraphs = html.split('\n\n').filter(Boolean);
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function parseInlineMarkdown(text: string): string {
+  const escaped = escapeHtml(text);
+  return escaped
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/~~([^~]+)~~/g, '<s>$1</s>')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2">$1</a>');
+}
+
+function markdownToHtml(markdown: string): string {
+  const lines = markdown.replaceAll('\r\n', '\n').split('\n');
+  const blocks: string[] = [];
+  let listType: 'ul' | 'ol' | null = null;
+  let inCodeBlock = false;
+
+  const closeList = () => {
+    if (!listType) return;
+    blocks.push(`</${listType}>`);
+    listType = null;
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith('```')) {
+      closeList();
+      if (!inCodeBlock) {
+        blocks.push('<pre><code>');
+      } else {
+        blocks.push('</code></pre>');
+      }
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+
+    if (inCodeBlock) {
+      blocks.push(`${escapeHtml(line)}\n`);
+      continue;
+    }
+
+    if (!trimmed) {
+      closeList();
+      continue;
+    }
+
+    const heading = line.match(/^(#{1,3})\s+(.+)$/);
+    if (heading) {
+      closeList();
+      const level = heading[1].length;
+      blocks.push(`<h${level}>${parseInlineMarkdown(heading[2])}</h${level}>`);
+      continue;
+    }
+
+    if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+      closeList();
+      blocks.push('<hr />');
+      continue;
+    }
+
+    const unordered = line.match(/^\s*[-*+]\s+(.+)$/);
+    if (unordered) {
+      if (listType !== 'ul') {
+        closeList();
+        blocks.push('<ul>');
+        listType = 'ul';
+      }
+      blocks.push(`<li>${parseInlineMarkdown(unordered[1])}</li>`);
+      continue;
+    }
+
+    const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
+    if (ordered) {
+      if (listType !== 'ol') {
+        closeList();
+        blocks.push('<ol>');
+        listType = 'ol';
+      }
+      blocks.push(`<li>${parseInlineMarkdown(ordered[1])}</li>`);
+      continue;
+    }
+
+    const quote = line.match(/^\s*>\s+(.+)$/);
+    if (quote) {
+      closeList();
+      blocks.push(`<blockquote><p>${parseInlineMarkdown(quote[1])}</p></blockquote>`);
+      continue;
+    }
+
+    closeList();
+    blocks.push(`<p>${parseInlineMarkdown(line)}</p>`);
+  }
+
+  closeList();
+  if (inCodeBlock) {
+    blocks.push('</code></pre>');
+  }
+
+  return blocks.join('\n');
+}
+
+function parseInitialContent(
+  value: string,
+  inputFormat: RichEditorProps['inputFormat'] = 'auto',
+): EditorContentProps['initialContent'] {
+  if (!value || value.trim() === '') return undefined;
+
+  if (inputFormat === 'html') {
+    return value as unknown as EditorContentProps['initialContent'];
+  }
+
+  if (inputFormat === 'markdown') {
+    return markdownToHtml(value) as unknown as EditorContentProps['initialContent'];
+  }
+
+  if (!/<[a-z][\s\S]*>/i.test(value)) {
+    const paragraphs = value.split('\n\n').filter(Boolean);
     return {
       type: 'doc',
       content: paragraphs.map((p) => ({
@@ -675,5 +799,5 @@ function parseInitialContent(html: string): EditorContentProps['initialContent']
       })),
     };
   }
-  return html as unknown as EditorContentProps['initialContent'];
+  return value as unknown as EditorContentProps['initialContent'];
 }

@@ -15,6 +15,7 @@ import {
   PanelLeftClose,
   PanelLeft,
 } from 'lucide-react';
+import { NotificationBell } from '@/features/notification/components/notification-bell';
 import {
   Tooltip,
   TooltipContent,
@@ -177,12 +178,15 @@ export function Sidebar({
         >
           Gritpus Stela
         </Link>
-        <button
-          onClick={onToggle}
-          className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
-        >
-          <PanelLeftClose className="size-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          <NotificationBell />
+          <button
+            onClick={onToggle}
+            className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+          >
+            <PanelLeftClose className="size-4" />
+          </button>
+        </div>
       </div>
 
       {/* Navigation */}

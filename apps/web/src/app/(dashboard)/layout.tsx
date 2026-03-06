@@ -7,6 +7,7 @@ import { Sidebar } from '@/components/common/sidebar';
 import { MobileNav } from '@/components/common/mobile-nav';
 import { ParseProgressProvider } from '@/features/meeting/providers/parse-progress-provider';
 import { ParseProgressTracker } from '@/features/meeting/components/parse-progress-tracker';
+import { NotificationProvider } from '@/features/notification/providers/notification-provider';
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -31,16 +32,18 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
   return (
     <ParseProgressProvider>
-      <div className="flex h-dvh">
-        <div className="hidden md:flex">
-          <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
+      <NotificationProvider>
+        <div className="flex h-dvh">
+          <div className="hidden md:flex">
+            <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
+          </div>
+          <main className="flex flex-1 flex-col overflow-auto pb-[var(--mobile-nav-offset)] md:pb-0">
+            {children}
+          </main>
+          <MobileNav />
         </div>
-        <main className="flex flex-1 flex-col overflow-auto pb-[var(--mobile-nav-offset)] md:pb-0">
-          {children}
-        </main>
-        <MobileNav />
-      </div>
-      <ParseProgressTracker />
+        <ParseProgressTracker />
+      </NotificationProvider>
     </ParseProgressProvider>
   );
 }

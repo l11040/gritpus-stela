@@ -7,6 +7,7 @@ import {
   OneToMany,
   ManyToMany,
 } from 'typeorm';
+import { Exclude } from 'class-transformer';
 import { ProjectMember } from '../../project/entities/project-member.entity';
 import { Card } from '../../board/entities/card.entity';
 import { ApiKey } from './api-key.entity';
@@ -25,6 +26,7 @@ export class User {
   email: string;
 
   @Column()
+  @Exclude()
   password: string;
 
   @Column()

@@ -40,7 +40,7 @@ function getCompletedSteps(events: ParseProgressEvent[]): Set<string> {
 }
 
 export function ParseProgressTracker() {
-  const { job, events, currentStep, isComplete, isFailed, isParsing, dismiss } =
+  const { job, events, currentStep, isComplete, isFailed, isParsing, dismiss, cancelParsing } =
     useParseProgressContext();
   const [collapsed, setCollapsed] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -110,6 +110,17 @@ export function ParseProgressTracker() {
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {isParsing && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                void cancelParsing();
+              }}
+              className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              중단
+            </button>
+          )}
           {(isComplete || isFailed) && (
             <button
               onClick={(e) => {

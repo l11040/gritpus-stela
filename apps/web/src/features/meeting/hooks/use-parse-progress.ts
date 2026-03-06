@@ -86,15 +86,23 @@ export function useParseProgress() {
       try {
         const data: ParseProgressEvent = JSON.parse(event.data);
         setState((prev) => {
+          const duplicate = prev.events.some(
+            (existing) =>
+              existing.timestamp === data.timestamp &&
+              existing.step === data.step &&
+              existing.message === data.message,
+          );
+          if (duplicate) {
+            return prev;
+          }
+
           const events = [...prev.events, data];
           const isComplete = data.step === 'completed';
           const isFailed = data.step === 'failed';
 
           if (isComplete || isFailed) {
             saveJob(null);
-            if (isComplete) {
-              onCompleteRef.current?.(job.meetingId);
-            }
+            onCompleteRef.current?.(job.meetingId);
           }
 
           return {
@@ -139,9 +147,7 @@ export function useParseProgress() {
                     timestamp: Date.now(),
                   },
                 }));
-                if (meeting.status === 'parsed' || meeting.status === 'confirmed') {
-                  onCompleteRef.current?.(job.meetingId);
-                }
+                onCompleteRef.current?.(job.meetingId);
               }
             })
             .catch(() => {
@@ -164,10 +170,36 @@ export function useParseProgress() {
   // Restore from localStorage on mount
   useEffect(() => {
     const savedJob = loadJob();
-    if (savedJob) {
-      setState((prev) => ({ ...prev, job: savedJob }));
-      connectSSE(savedJob);
-    }
+    if (!savedJob) return cleanup;
+
+    fetcher<{ status: string }>({
+      url: `/projects/${savedJob.projectId}/meetings/${savedJob.meetingId}`,
+      method: 'GET',
+    })
+      .then((meeting) => {
+        if (meeting.status !== 'parsing') {
+          saveJob(null);
+          setState((prev) => ({
+            ...prev,
+            job: null,
+            isComplete: meeting.status === 'parsed' || meeting.status === 'confirmed',
+            isFailed: meeting.status === 'failed',
+            currentStep: {
+              step: meeting.status === 'parsed' || meeting.status === 'confirmed' ? 'completed' : 'failed',
+              message: meeting.status === 'parsed' || meeting.status === 'confirmed' ? '파싱이 완료되었습니다!' : '파싱 작업이 종료되었습니다.',
+              timestamp: Date.now(),
+            },
+          }));
+          return;
+        }
+
+        setState((prev) => ({ ...prev, job: savedJob }));
+        connectSSE(savedJob);
+      })
+      .catch(() => {
+        saveJob(null);
+      });
+
     return cleanup;
   }, [connectSSE, cleanup]);
 
@@ -201,6 +233,59 @@ export function useParseProgress() {
     [connectSSE],
   );
 
+  const cancelParsing = useCallback(async () => {
+    const job = state.job;
+    if (!job) return;
+
+    try {
+      const result = await fetcher<{ cancelled: boolean; message: string }>({
+        url: `/projects/${job.projectId}/meetings/${job.meetingId}/parse/cancel`,
+        method: 'POST',
+      });
+
+      if (!result?.cancelled) {
+        cleanup();
+        saveJob(null);
+        setState((prev) => ({
+          ...prev,
+          job: null,
+          isComplete: false,
+          isFailed: true,
+          currentStep: {
+            step: 'failed',
+            message: result?.message || '중단할 파싱 작업이 없습니다.',
+            timestamp: Date.now(),
+          },
+        }));
+        return;
+      }
+
+      cleanup();
+      saveJob(null);
+      setState((prev) => ({
+        ...prev,
+        job: null,
+        isComplete: false,
+        isFailed: true,
+        currentStep: {
+          step: 'failed',
+          message: '사용자 요청으로 파싱을 중단했습니다.',
+          timestamp: Date.now(),
+        },
+      }));
+      onCompleteRef.current?.(job.meetingId);
+    } catch {
+      setState((prev) => ({
+        ...prev,
+        currentStep: {
+          step: 'failed',
+          message: '파싱 중단 요청에 실패했습니다.',
+          timestamp: Date.now(),
+        },
+      }));
+    }
+  }, [cleanup, state.job]);
+
   const dismiss = useCallback(() => {
     cleanup();
     saveJob(null);
@@ -225,6 +310,7 @@ export function useParseProgress() {
     isFailed: state.isFailed,
     isParsing: !!state.job && !state.isComplete && !state.isFailed,
     startParsing,
+    cancelParsing,
     dismiss,
     onComplete,
   };

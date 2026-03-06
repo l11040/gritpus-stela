@@ -128,9 +128,13 @@ export default function MeetingDetailPage() {
         <section>
           <h3 className="mb-2 text-sm font-medium text-muted-foreground">회의 요약</h3>
           <div className="rounded-md border px-4 py-3">
-            <div className="whitespace-pre-wrap text-sm leading-relaxed">
-              {meeting.meetingSummary}
-            </div>
+            <RichEditor
+              key={`summary-${meeting.id}`}
+              defaultValue={meeting.meetingSummary}
+              editable={false}
+              inputFormat="markdown"
+              className="text-sm leading-relaxed"
+            />
           </div>
         </section>
       )}

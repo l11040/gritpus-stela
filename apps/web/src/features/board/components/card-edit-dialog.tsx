@@ -275,14 +275,14 @@ export function CardEditDialog({
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="제목 없음"
-                  className="mt-2 h-auto border-none px-0 text-4xl leading-tight font-semibold tracking-tight shadow-none focus-visible:ring-0"
+                  className="mt-2 h-auto border-none px-0 text-xl leading-tight font-semibold tracking-tight shadow-none focus-visible:ring-0 md:text-4xl"
                 />
 
                 <div className="mt-6">
-                  <Label className="text-xs font-medium text-muted-foreground">속성</Label>
+                  <Label className="text-xs font-medium text-muted-foreground md:text-sm">속성</Label>
                   <div className="mt-2 space-y-1">
                     <div className="flex items-center gap-3 rounded-md px-2 py-1 hover:bg-muted/50">
-                      <div className="flex w-24 shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                      <div className="flex w-24 shrink-0 items-center gap-2 text-xs text-muted-foreground md:text-sm">
                         <UserRound className="size-3.5" />
                         <span>담당자</span>
                       </div>
@@ -293,7 +293,7 @@ export function CardEditDialog({
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-full justify-between rounded-md border border-transparent px-2 text-xs font-normal hover:border-border hover:bg-background"
+                              className="h-8 w-full justify-between rounded-md border border-transparent px-2 text-xs font-normal hover:border-border hover:bg-background md:text-sm"
                             >
                               <span className="truncate text-left">{assigneeLabel}</span>
                               <ChevronDown className="size-3.5 shrink-0" />
@@ -316,7 +316,7 @@ export function CardEditDialog({
                 </div>
 
                     <div className="flex items-center gap-3 rounded-md px-2 py-1 hover:bg-muted/50">
-                      <div className="flex w-24 shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                      <div className="flex w-24 shrink-0 items-center gap-2 text-xs text-muted-foreground md:text-sm">
                         <CalendarDays className="size-3.5" />
                         <span>기한</span>
                       </div>
@@ -326,7 +326,7 @@ export function CardEditDialog({
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-8 w-full justify-start rounded-md border border-transparent px-2 text-xs font-normal hover:border-border hover:bg-background"
+                              className="h-8 w-full justify-start rounded-md border border-transparent px-2 text-xs font-normal hover:border-border hover:bg-background md:text-sm"
                             >
                               <CalendarDays className="size-3.5" />
                               {dueDate
@@ -367,13 +367,13 @@ export function CardEditDialog({
                     </div>
 
                     <div className="flex items-center gap-3 rounded-md px-2 py-1 hover:bg-muted/50">
-                      <div className="flex w-24 shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                      <div className="flex w-24 shrink-0 items-center gap-2 text-xs text-muted-foreground md:text-sm">
                         <Flag className="size-3.5" />
                         <span>우선순위</span>
                       </div>
                       <div className="flex-1">
                         <Select value={priority} onValueChange={setPriority}>
-                          <SelectTrigger className="h-8 border-transparent bg-transparent px-2 text-xs font-normal shadow-none hover:border-border hover:bg-background">
+                          <SelectTrigger className="h-8 border-transparent bg-transparent px-2 text-xs font-normal shadow-none hover:border-border hover:bg-background md:text-sm">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -390,7 +390,7 @@ export function CardEditDialog({
                 </div>
 
                 <div className="mt-6">
-                  <Label className="text-xs font-medium text-muted-foreground">내용</Label>
+                  <Label className="text-xs font-medium text-muted-foreground md:text-sm">내용</Label>
                   <RichEditor
                     key={card?.id}
                     defaultValue={card?.description || ''}

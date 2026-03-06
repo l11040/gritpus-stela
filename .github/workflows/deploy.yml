@@ -118,7 +118,7 @@ jobs:
             # 변경된 서비스만 재배포
             if [ ! -z "$SERVICES_TO_DEPLOY" ]; then
               echo "Deploying services: $SERVICES_TO_DEPLOY"
-              docker compose up -d --no-deps --build $SERVICES_TO_DEPLOY
+              docker compose up -d --no-deps --build --force-recreate $SERVICES_TO_DEPLOY
             else
               echo "No services to deploy."
             fi

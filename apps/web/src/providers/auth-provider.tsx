@@ -29,9 +29,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchProfile = useCallback(async () => {
     try {
-      const res = await fetch(`${BASE_URL}/auth/me`, {
+      let res = await fetch(`${BASE_URL}/auth/me`, {
         credentials: 'include',
       });
+
+      if (res.status === 401) {
+        const refreshRes = await fetch(`${BASE_URL}/auth/refresh`, {
+          method: 'POST',
+          credentials: 'include',
+        });
+        if (refreshRes.ok) {
+          res = await fetch(`${BASE_URL}/auth/me`, {
+            credentials: 'include',
+          });
+        }
+      }
+
       if (res.ok) {
         setUser(await res.json());
       } else {

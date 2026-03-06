@@ -474,7 +474,7 @@ export function BoardView({ projectId, boardId }: BoardViewProps) {
           <ContextMenuTrigger asChild disabled={selectedCount === 0}>
             <div
               ref={boardCanvasRef}
-              className="scrollbar-hide flex min-h-full flex-1 select-none gap-3 overflow-auto px-8"
+              className="scrollbar-hide flex min-h-full flex-1 select-none gap-3 overflow-auto px-8 pb-32"
               style={
                 canvasMinHeight > 0
                   ? { minHeight: `${canvasMinHeight}px`, height: `${canvasMinHeight}px` }

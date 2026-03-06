@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { Suspense } from 'react';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { RouteTransitionProvider } from '@/providers/route-transition-provider';
@@ -22,9 +23,11 @@ export default function RootLayout({
     <html lang="ko">
       <body className="min-h-dvh antialiased">
         <TooltipProvider delayDuration={300}>
-          <RouteTransitionProvider>
-            {children}
-          </RouteTransitionProvider>
+          <Suspense>
+            <RouteTransitionProvider>
+              {children}
+            </RouteTransitionProvider>
+          </Suspense>
         </TooltipProvider>
         <Toaster />
       </body>

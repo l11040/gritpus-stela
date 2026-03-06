@@ -141,7 +141,7 @@ export function BoardColumn({
         <div
           ref={setNodeRef}
           className={cn(
-            'space-y-1.5 rounded-md p-1 pb-32 transition-colors',
+            'space-y-1.5 rounded-md p-1 transition-colors',
             cardIds.length === 0 && 'min-h-10',
             isOver && 'bg-muted/50',
           )}

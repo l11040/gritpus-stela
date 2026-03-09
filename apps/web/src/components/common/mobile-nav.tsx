@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/drawer';
 import {
   LayoutDashboard,
+  ClipboardList,
   FolderKanban,
   CircleUserRound,
   LogOut,
@@ -76,6 +77,7 @@ export function MobileNav() {
   const currentProject = projects.find((p) => p.id === currentProjectId);
 
   const isHome = pathname === '/dashboard';
+  const isWeekly = pathname.startsWith('/weekly');
   const isProject = !!currentProjectId;
 
   return (
@@ -123,6 +125,13 @@ export function MobileNav() {
             icon={LayoutDashboard}
             label="홈"
             active={isHome}
+          />
+
+          <NavPill
+            href="/weekly"
+            icon={ClipboardList}
+            label="주간"
+            active={isWeekly}
           />
 
           {projects.length > 0 && (

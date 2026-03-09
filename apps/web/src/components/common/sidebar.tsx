@@ -8,6 +8,7 @@ import { fetcher } from '@/api/fetcher';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
+  ClipboardList,
   Shield,
   Plus,
   LogOut,
@@ -108,6 +109,23 @@ export function Sidebar({
             <TooltipContent side="right" className="text-xs">대시보드</TooltipContent>
           </Tooltip>
 
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                href="/weekly"
+                className={cn(
+                  'rounded-md p-2 transition-all duration-150',
+                  pathname.startsWith('/weekly')
+                    ? 'bg-muted text-foreground'
+                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+                )}
+              >
+                <ClipboardList className="size-4" />
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="text-xs">주간 업무</TooltipContent>
+          </Tooltip>
+
           {user?.role === 'admin' && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -196,6 +214,13 @@ export function Sidebar({
           icon={LayoutDashboard}
           label="대시보드"
           active={pathname === '/dashboard'}
+        />
+
+        <NavItem
+          href="/weekly"
+          icon={ClipboardList}
+          label="주간 업무"
+          active={pathname.startsWith('/weekly')}
         />
 
         {user?.role === 'admin' && (

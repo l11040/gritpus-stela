@@ -58,12 +58,13 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:50002';
 
 interface RichEditorProps {
   defaultValue?: string;
-  onChange?: (html: string) => void;
+  onChange?: (value: string) => void;
   placeholder?: string;
   className?: string;
   editable?: boolean;
   showCharacterCount?: boolean;
   inputFormat?: 'auto' | 'html' | 'markdown';
+  outputFormat?: 'html' | 'markdown';
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -538,14 +539,20 @@ export function RichEditor({
   editable = true,
   showCharacterCount = false,
   inputFormat = 'auto',
+  outputFormat = 'html',
 }: RichEditorProps) {
   const exts = createExtensionsWithPlaceholder(placeholder);
 
   const handleUpdate = useCallback(
     ({ editor }: { editor: { getHTML: () => string } }) => {
-      onChange?.(editor.getHTML());
+      const html = editor.getHTML();
+      if (outputFormat === 'markdown') {
+        onChange?.(htmlToMarkdown(html));
+        return;
+      }
+      onChange?.(html);
     },
-    [onChange],
+    [onChange, outputFormat],
   );
 
   return (
@@ -670,6 +677,157 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+function inlineHtmlNodeToMarkdown(node: ChildNode): string {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return (node.textContent || '').replace(/\u00a0/g, ' ');
+  }
+
+  if (node.nodeType !== Node.ELEMENT_NODE) {
+    return '';
+  }
+
+  const element = node as HTMLElement;
+  const tag = element.tagName.toLowerCase();
+  const childText = inlineHtmlNodesToMarkdown(Array.from(element.childNodes));
+
+  if (tag === 'br') return '\n';
+  if (tag === 'strong' || tag === 'b') return `**${childText}**`;
+  if (tag === 'em' || tag === 'i') return `*${childText}*`;
+  if (tag === 's' || tag === 'strike' || tag === 'del') return `~~${childText}~~`;
+  if (tag === 'code' && element.parentElement?.tagName.toLowerCase() !== 'pre') {
+    return `\`${childText}\``;
+  }
+  if (tag === 'a') {
+    const href = element.getAttribute('href') || '';
+    return href ? `[${childText}](${href})` : childText;
+  }
+  if (tag === 'img') {
+    const alt = element.getAttribute('alt') || '';
+    const src = element.getAttribute('src') || '';
+    return src ? `![${alt}](${src})` : '';
+  }
+
+  return childText;
+}
+
+function inlineHtmlNodesToMarkdown(nodes: ChildNode[]): string {
+  return nodes.map((node) => inlineHtmlNodeToMarkdown(node)).join('');
+}
+
+function listElementToMarkdown(
+  listElement: Element,
+  listType: 'ul' | 'ol',
+  depth: number,
+): string[] {
+  const lines: string[] = [];
+  const items = Array.from(listElement.children).filter(
+    (child) => child.tagName.toLowerCase() === 'li',
+  );
+
+  items.forEach((item, index) => {
+    const marker = listType === 'ol' ? `${index + 1}.` : '-';
+    const indent = '  '.repeat(depth);
+    const childNodes = Array.from(item.childNodes);
+    const nestedLists = childNodes.filter(
+      (node): node is Element =>
+        node.nodeType === Node.ELEMENT_NODE
+        && ['ul', 'ol'].includes((node as Element).tagName.toLowerCase()),
+    );
+    const inlineNodes = childNodes.filter((node) => !nestedLists.includes(node as Element));
+    const inlineText = inlineHtmlNodesToMarkdown(inlineNodes).trim();
+    lines.push(`${indent}${marker} ${inlineText}`.trimEnd());
+
+    nestedLists.forEach((nestedList) => {
+      const nestedType = nestedList.tagName.toLowerCase() as 'ul' | 'ol';
+      lines.push(...listElementToMarkdown(nestedList, nestedType, depth + 1));
+    });
+  });
+
+  return lines;
+}
+
+function blockElementToMarkdownLines(element: Element): string[] {
+  const tag = element.tagName.toLowerCase();
+
+  if (tag === 'h1' || tag === 'h2' || tag === 'h3') {
+    const level = Number(tag.slice(1));
+    const heading = inlineHtmlNodesToMarkdown(Array.from(element.childNodes)).trim();
+    return heading ? [`${'#'.repeat(level)} ${heading}`] : [];
+  }
+
+  if (tag === 'p') {
+    const paragraph = inlineHtmlNodesToMarkdown(Array.from(element.childNodes)).trim();
+    return paragraph ? [paragraph] : [];
+  }
+
+  if (tag === 'blockquote') {
+    const quoteLines = blockNodesToMarkdownLines(Array.from(element.childNodes));
+    return quoteLines.map((line) => (line ? `> ${line}` : '>'));
+  }
+
+  if (tag === 'pre') {
+    const codeElement = element.querySelector('code');
+    const codeText = (codeElement?.textContent || element.textContent || '').replace(/\n+$/, '');
+    return ['```', codeText, '```'];
+  }
+
+  if (tag === 'hr') {
+    return ['---'];
+  }
+
+  if (tag === 'ul' || tag === 'ol') {
+    return listElementToMarkdown(element, tag, 0);
+  }
+
+  const inlineFallback = inlineHtmlNodesToMarkdown(Array.from(element.childNodes)).trim();
+  if (inlineFallback) {
+    return [inlineFallback];
+  }
+
+  return blockNodesToMarkdownLines(Array.from(element.childNodes));
+}
+
+function blockNodesToMarkdownLines(nodes: ChildNode[]): string[] {
+  const chunks: string[][] = [];
+
+  nodes.forEach((node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = (node.textContent || '').trim();
+      if (text) chunks.push([text]);
+      return;
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return;
+    }
+
+    const block = blockElementToMarkdownLines(node as Element)
+      .map((line) => line.replace(/\s+$/g, ''));
+    if (block.length > 0) {
+      chunks.push(block);
+    }
+  });
+
+  const lines: string[] = [];
+  chunks.forEach((chunk, index) => {
+    if (index > 0 && lines[lines.length - 1] !== '') {
+      lines.push('');
+    }
+    lines.push(...chunk);
+  });
+
+  return lines;
+}
+
+function htmlToMarkdown(html: string): string {
+  if (!html.trim()) return '';
+
+  const parser = new DOMParser();
+  const document = parser.parseFromString(html, 'text/html');
+  const lines = blockNodesToMarkdownLines(Array.from(document.body.childNodes));
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 function parseInlineMarkdown(text: string): string {
   const escaped = escapeHtml(text);
   return escaped
@@ -680,90 +838,207 @@ function parseInlineMarkdown(text: string): string {
     .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2">$1</a>');
 }
 
+type MarkdownListType = 'ul' | 'ol';
+
+type MarkdownListItem = {
+  contentHtml: string;
+  children: MarkdownListBlock[];
+};
+
+type MarkdownListBlock = {
+  type: MarkdownListType;
+  items: MarkdownListItem[];
+};
+
+function getIndentSize(value: string): number {
+  return value.replaceAll('\t', '    ').length;
+}
+
+function parseMarkdownListLine(line: string): {
+  indent: number;
+  type: MarkdownListType;
+  text: string;
+} | null {
+  const match = line.match(/^(\s*)([-*+]|\d+\.)\s+(.+)$/);
+  if (!match) return null;
+  return {
+    indent: getIndentSize(match[1]),
+    type: /^\d+\.$/.test(match[2]) ? 'ol' : 'ul',
+    text: match[3],
+  };
+}
+
+function parseMarkdownListBlock(
+  lines: string[],
+  startIndex: number,
+  baseIndent: number,
+  listType: MarkdownListType,
+): { block: MarkdownListBlock; nextIndex: number } {
+  const items: MarkdownListItem[] = [];
+  let index = startIndex;
+
+  while (index < lines.length) {
+    if (!lines[index].trim()) {
+      index += 1;
+      continue;
+    }
+
+    const current = parseMarkdownListLine(lines[index]);
+    if (!current || current.indent < baseIndent || current.type !== listType) {
+      break;
+    }
+    if (current.indent > baseIndent) {
+      break;
+    }
+
+    const item: MarkdownListItem = {
+      contentHtml: parseInlineMarkdown(current.text.trim()),
+      children: [],
+    };
+
+    index += 1;
+
+    while (index < lines.length) {
+      const nextLine = lines[index];
+      const trimmedNext = nextLine.trim();
+      if (!trimmedNext) {
+        const nextNonEmptyIndex = findNextNonEmptyLineIndex(lines, index + 1);
+        if (nextNonEmptyIndex < 0) {
+          index += 1;
+          break;
+        }
+
+        const lookahead = parseMarkdownListLine(lines[nextNonEmptyIndex]);
+        if (lookahead && lookahead.indent > baseIndent) {
+          index += 1;
+          continue;
+        }
+
+        index += 1;
+        break;
+      }
+
+      const nextList = parseMarkdownListLine(nextLine);
+      if (nextList) {
+        if (nextList.indent <= baseIndent) {
+          break;
+        }
+
+        const nested = parseMarkdownListBlock(lines, index, nextList.indent, nextList.type);
+        item.children.push(nested.block);
+        index = nested.nextIndex;
+        continue;
+      }
+
+      const continuationIndent = getIndentSize((nextLine.match(/^(\s*)/) || [''])[0]);
+      if (continuationIndent > baseIndent) {
+        item.contentHtml += `<br />${parseInlineMarkdown(trimmedNext)}`;
+        index += 1;
+        continue;
+      }
+
+      break;
+    }
+
+    items.push(item);
+  }
+
+  return {
+    block: { type: listType, items },
+    nextIndex: index,
+  };
+}
+
+function findNextNonEmptyLineIndex(lines: string[], startIndex: number): number {
+  for (let index = startIndex; index < lines.length; index += 1) {
+    if (lines[index].trim()) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function renderMarkdownListBlock(block: MarkdownListBlock): string {
+  const html: string[] = [`<${block.type}>`];
+
+  block.items.forEach((item) => {
+    html.push('<li>');
+    html.push(item.contentHtml);
+    item.children.forEach((nested) => {
+      html.push(renderMarkdownListBlock(nested));
+    });
+    html.push('</li>');
+  });
+
+  html.push(`</${block.type}>`);
+  return html.join('\n');
+}
+
 function markdownToHtml(markdown: string): string {
   const lines = markdown.replaceAll('\r\n', '\n').split('\n');
   const blocks: string[] = [];
-  let listType: 'ul' | 'ol' | null = null;
   let inCodeBlock = false;
+  let index = 0;
 
-  const closeList = () => {
-    if (!listType) return;
-    blocks.push(`</${listType}>`);
-    listType = null;
-  };
-
-  for (const line of lines) {
+  while (index < lines.length) {
+    const line = lines[index];
     const trimmed = line.trim();
 
     if (trimmed.startsWith('```')) {
-      closeList();
       if (!inCodeBlock) {
         blocks.push('<pre><code>');
       } else {
         blocks.push('</code></pre>');
       }
       inCodeBlock = !inCodeBlock;
+      index += 1;
       continue;
     }
 
     if (inCodeBlock) {
       blocks.push(`${escapeHtml(line)}\n`);
+      index += 1;
       continue;
     }
 
     if (!trimmed) {
-      closeList();
+      index += 1;
       continue;
     }
 
     const heading = line.match(/^(#{1,3})\s+(.+)$/);
     if (heading) {
-      closeList();
       const level = heading[1].length;
       blocks.push(`<h${level}>${parseInlineMarkdown(heading[2])}</h${level}>`);
+      index += 1;
       continue;
     }
 
     if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
-      closeList();
       blocks.push('<hr />');
+      index += 1;
       continue;
     }
 
-    const unordered = line.match(/^\s*[-*+]\s+(.+)$/);
-    if (unordered) {
-      if (listType !== 'ul') {
-        closeList();
-        blocks.push('<ul>');
-        listType = 'ul';
-      }
-      blocks.push(`<li>${parseInlineMarkdown(unordered[1])}</li>`);
-      continue;
-    }
-
-    const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
-    if (ordered) {
-      if (listType !== 'ol') {
-        closeList();
-        blocks.push('<ol>');
-        listType = 'ol';
-      }
-      blocks.push(`<li>${parseInlineMarkdown(ordered[1])}</li>`);
+    const listLine = parseMarkdownListLine(line);
+    if (listLine) {
+      const parsedList = parseMarkdownListBlock(lines, index, listLine.indent, listLine.type);
+      blocks.push(renderMarkdownListBlock(parsedList.block));
+      index = parsedList.nextIndex;
       continue;
     }
 
     const quote = line.match(/^\s*>\s+(.+)$/);
     if (quote) {
-      closeList();
       blocks.push(`<blockquote><p>${parseInlineMarkdown(quote[1])}</p></blockquote>`);
+      index += 1;
       continue;
     }
 
-    closeList();
     blocks.push(`<p>${parseInlineMarkdown(line)}</p>`);
+    index += 1;
   }
 
-  closeList();
   if (inCodeBlock) {
     blocks.push('</code></pre>');
   }

@@ -12,6 +12,7 @@ import { DocumentModule } from './document/document.module';
 import { MeetingModule } from './meeting/meeting.module';
 import { UploadModule } from './upload/upload.module';
 import { NotificationModule } from './notification/notification.module';
+import { WeeklyWorkModule } from './weekly-work/weekly-work.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { NotificationModule } from './notification/notification.module';
     MeetingModule,
     UploadModule,
     NotificationModule,
+    WeeklyWorkModule,
   ],
   controllers: [AppController],
   providers: [

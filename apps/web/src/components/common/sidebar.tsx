@@ -9,7 +9,6 @@ import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
   ClipboardList,
-  Shield,
   Settings,
   Plus,
   LogOut,
@@ -110,25 +109,6 @@ export function Sidebar({
             <TooltipContent side="right" className="text-xs">대시보드</TooltipContent>
           </Tooltip>
 
-          {user?.role === 'admin' && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Link
-                  href="/admin/users"
-                  className={cn(
-                    'rounded-md p-2 transition-all duration-150',
-                    pathname.startsWith('/admin')
-                      ? 'bg-muted text-foreground'
-                      : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
-                  )}
-                >
-                  <Shield className="size-4" />
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="text-xs">사용자 관리</TooltipContent>
-            </Tooltip>
-          )}
-
           <div className="my-1 h-px w-6 bg-border" />
 
           {projects.map((project) => {
@@ -227,15 +207,6 @@ export function Sidebar({
           label="대시보드"
           active={pathname === '/dashboard'}
         />
-
-        {user?.role === 'admin' && (
-          <NavItem
-            href="/admin/users"
-            icon={Shield}
-            label="사용자 관리"
-            active={pathname.startsWith('/admin')}
-          />
-        )}
 
         {/* Divider */}
         <div className="my-3! h-px bg-border" />

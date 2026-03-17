@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   ClipboardList,
   Shield,
+  Settings,
   Plus,
   LogOut,
   Hash,
@@ -170,17 +171,26 @@ export function Sidebar({
           })}
         </nav>
 
-        <div className="border-t border-border p-1.5">
+        <div className="flex flex-col items-center gap-1 border-t border-border p-1.5">
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex items-center justify-center">
-                <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
-                  {user?.name?.[0] || '?'}
-                </div>
-              </div>
+              <Link
+                href="/settings"
+                className={cn(
+                  'rounded-md p-2 transition-all duration-150',
+                  pathname === '/settings'
+                    ? 'bg-muted text-foreground'
+                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+                )}
+              >
+                <Settings className="size-4" />
+              </Link>
             </TooltipTrigger>
-            <TooltipContent side="right" className="text-xs">{user?.name}</TooltipContent>
+            <TooltipContent side="right" className="text-xs">설정</TooltipContent>
           </Tooltip>
+          <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
+            {user?.name?.[0] || '?'}
+          </div>
         </div>
       </aside>
     );
@@ -270,6 +280,12 @@ export function Sidebar({
 
       {/* Footer */}
       <div className="border-t border-border p-2">
+        <NavItem
+          href="/settings"
+          icon={Settings}
+          label="설정"
+          active={pathname === '/settings'}
+        />
         <div className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5">
           <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
             {user?.name?.[0] || '?'}

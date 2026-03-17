@@ -137,6 +137,18 @@ export class ChangeUserRoleDto {
   role: 'admin' | 'user';
 }
 
+export class ChangePasswordDto {
+  @ApiProperty({ example: 'oldPassword123' })
+  @IsString()
+  @IsNotEmpty()
+  currentPassword: string;
+
+  @ApiProperty({ example: 'newPassword123', minLength: 6 })
+  @IsString()
+  @MinLength(6)
+  newPassword: string;
+}
+
 export class AdminUserListDto {
   @ApiProperty()
   id: string;

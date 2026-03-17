@@ -21,6 +21,7 @@ import {
   ApiKeyResponseDto,
   AdminUserListDto,
   ApproveUserDto,
+  ChangePasswordDto,
 } from './auth.dto';
 
 @Injectable()
@@ -151,6 +152,18 @@ export class AuthService {
     await this.apiKeyRepo.update({ id: keyId, userId }, { isActive: false });
   }
 
+  async changePassword(userId: string, dto: ChangePasswordDto): Promise<{ message: string }> {
+    const user = await this.userRepo.findOneOrFail({ where: { id: userId } });
+
+    const valid = await bcrypt.compare(dto.currentPassword, user.password);
+    if (!valid) throw new UnauthorizedException('현재 비밀번호가 올바르지 않습니다.');
+
+    const hashed = await bcrypt.hash(dto.newPassword, 10);
+    await this.userRepo.update(userId, { password: hashed });
+
+    return { message: '비밀번호가 변경되었습니다.' };
+  }
+
   // ── Admin: 사용자 관리 ──
 
   async assertAdmin(userId: string): Promise<void> {
@@ -182,6 +195,13 @@ export class AuthService {
     await this.assertAdmin(adminId);
     if (adminId === targetUserId) throw new ForbiddenException('자기 자신을 삭제할 수 없습니다.');
     await this.userRepo.delete(targetUserId);
+  }
+
+  async resetUserPassword(adminId: string, targetUserId: string): Promise<{ message: string }> {
+    await this.assertAdmin(adminId);
+    const hashed = await bcrypt.hash('qwer1234@', 10);
+    await this.userRepo.update(targetUserId, { password: hashed });
+    return { message: '비밀번호가 초기화되었습니다.' };
   }
 
   async changeUserRole(adminId: string, targetUserId: string, role: UserRole): Promise<void> {

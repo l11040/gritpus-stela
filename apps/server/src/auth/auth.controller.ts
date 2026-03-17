@@ -10,6 +10,7 @@ import {
   LoginResponseDto,
   UserProfileDto,
   UpdateProfileDto,
+  ChangePasswordDto,
   CreateApiKeyDto,
   ApiKeyResponseDto,
   ApproveUserDto,
@@ -125,6 +126,19 @@ export class AuthController {
     return this.authService.updateProfile(user.id, dto);
   }
 
+  @Patch('me/password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '비밀번호 변경' })
+  @ApiResponse({ status: 200, description: '비밀번호 변경 완료' })
+  @ApiResponse({ status: 401, description: '현재 비밀번호 불일치' })
+  changePassword(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() dto: ChangePasswordDto,
+  ): Promise<{ message: string }> {
+    return this.authService.changePassword(user.id, dto);
+  }
+
   @Post('api-keys')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -179,6 +193,19 @@ export class AuthController {
     @Body() dto: ApproveUserDto,
   ): Promise<void> {
     return this.authService.approveUser(user.id, userId, dto);
+  }
+
+  @Post('admin/users/:userId/reset-password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '[Admin] 사용자 비밀번호 초기화 (qwer1234@)' })
+  @ApiResponse({ status: 200, description: '비밀번호 초기화 완료' })
+  @ApiResponse({ status: 403, description: '관리자 권한 필요' })
+  resetUserPassword(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('userId') userId: string,
+  ): Promise<{ message: string }> {
+    return this.authService.resetUserPassword(user.id, userId);
   }
 
   @Patch('admin/users/:userId/role')

@@ -13,7 +13,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { AlertCircle } from 'lucide-react';
+import { ConfirmDialog } from '@/components/common/confirm-dialog';
+import { AlertCircle, KeyRound } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface AdminUser {
   id: string;
@@ -29,6 +31,8 @@ export default function AdminUsersPage() {
   const router = useRouter();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState<Record<string, boolean>>({});
+  const [resetPasswordTarget, setResetPasswordTarget] = useState<AdminUser | null>(null);
+  const [resettingPassword, setResettingPassword] = useState(false);
 
   const load = useCallback(() => {
     fetcher<AdminUser[]>({ url: '/auth/admin/users', method: 'GET' })
@@ -86,6 +90,23 @@ export default function AdminUsersPage() {
     } catch {
     } finally {
       setLoadingFor(userId, false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetPasswordTarget) return;
+    setResettingPassword(true);
+    try {
+      await fetcher({
+        url: `/auth/admin/users/${resetPasswordTarget.id}/reset-password`,
+        method: 'POST',
+      });
+      toast.success(`${resetPasswordTarget.name}의 비밀번호가 초기화되었습니다.`);
+      setResetPasswordTarget(null);
+    } catch {
+      toast.error('비밀번호 초기화에 실패했습니다.');
+    } finally {
+      setResettingPassword(false);
     }
   };
 
@@ -188,6 +209,16 @@ export default function AdminUsersPage() {
                       size="sm"
                       variant="ghost"
                       className="h-7 text-xs"
+                      onClick={() => setResetPasswordTarget(u)}
+                      disabled={loading[u.id]}
+                      title="비밀번호 초기화"
+                    >
+                      <KeyRound className="size-3.5" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs"
                       onClick={() => handleApprove(u.id, false)}
                       disabled={loading[u.id]}
                     >
@@ -211,6 +242,17 @@ export default function AdminUsersPage() {
           ))}
         </div>
       </section>
+
+      <ConfirmDialog
+        open={!!resetPasswordTarget}
+        onOpenChange={(open) => !open && setResetPasswordTarget(null)}
+        title="비밀번호 초기화"
+        description={`${resetPasswordTarget?.name}(${resetPasswordTarget?.email})의 비밀번호를 qwer1234@로 초기화하시겠습니까?`}
+        confirmLabel="초기화"
+        variant="default"
+        loading={resettingPassword}
+        onConfirm={handleResetPassword}
+      />
     </div>
   );
 }

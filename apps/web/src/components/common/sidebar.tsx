@@ -110,23 +110,6 @@ export function Sidebar({
             <TooltipContent side="right" className="text-xs">대시보드</TooltipContent>
           </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Link
-                href="/weekly"
-                className={cn(
-                  'rounded-md p-2 transition-all duration-150',
-                  pathname.startsWith('/weekly')
-                    ? 'bg-muted text-foreground'
-                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
-                )}
-              >
-                <ClipboardList className="size-4" />
-              </Link>
-            </TooltipTrigger>
-            <TooltipContent side="right" className="text-xs">주간 업무</TooltipContent>
-          </Tooltip>
-
           {user?.role === 'admin' && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -169,6 +152,25 @@ export function Sidebar({
               </Tooltip>
             );
           })}
+
+          <div className="my-1 h-px w-6 bg-border" />
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                href="/weekly"
+                className={cn(
+                  'rounded-md p-2 transition-all duration-150',
+                  pathname.startsWith('/weekly')
+                    ? 'bg-muted text-foreground'
+                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+                )}
+              >
+                <ClipboardList className="size-4" />
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="text-xs">주간 업무</TooltipContent>
+          </Tooltip>
         </nav>
 
         <div className="flex flex-col items-center gap-1 border-t border-border p-1.5">
@@ -226,13 +228,6 @@ export function Sidebar({
           active={pathname === '/dashboard'}
         />
 
-        <NavItem
-          href="/weekly"
-          icon={ClipboardList}
-          label="주간 업무"
-          active={pathname.startsWith('/weekly')}
-        />
-
         {user?.role === 'admin' && (
           <NavItem
             href="/admin/users"
@@ -276,6 +271,23 @@ export function Sidebar({
             </Link>
           );
         })}
+
+        {/* Divider */}
+        <div className="my-3! h-px bg-border" />
+
+        {/* Tools section */}
+        <div className="flex items-center justify-between px-2.5 pb-1">
+          <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            도구
+          </span>
+        </div>
+
+        <NavItem
+          href="/weekly"
+          icon={ClipboardList}
+          label="주간 업무"
+          active={pathname.startsWith('/weekly')}
+        />
       </nav>
 
       {/* Footer */}

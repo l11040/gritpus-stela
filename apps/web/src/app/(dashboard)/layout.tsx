@@ -12,7 +12,10 @@ import { NotificationProvider } from '@/features/notification/providers/notifica
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('sidebar-collapsed') === 'true';
+  });
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -35,7 +38,11 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
       <NotificationProvider>
         <div className="flex h-dvh">
           <div className="hidden md:flex">
-            <Sidebar collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
+            <Sidebar collapsed={sidebarCollapsed} onToggle={() => {
+              const next = !sidebarCollapsed;
+              setSidebarCollapsed(next);
+              localStorage.setItem('sidebar-collapsed', String(next));
+            }} />
           </div>
           <main className="flex flex-1 flex-col overflow-auto pb-[var(--mobile-nav-offset)] md:pb-0">
             {children}

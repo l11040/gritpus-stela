@@ -30,6 +30,11 @@ import {
   CharacterCount,
   CustomKeymap,
 } from 'novel';
+import Table from '@tiptap/extension-table';
+import TableRow from '@tiptap/extension-table-row';
+import TableHeader from '@tiptap/extension-table-header';
+import TableCell from '@tiptap/extension-table-cell';
+import { MermaidExtension } from './editor-mermaid-block';
 import { cn } from '@/lib/utils';
 import {
   Heading1,
@@ -51,6 +56,8 @@ import {
   Link,
   Palette,
   X,
+  Table as TableIcon,
+  GitBranch,
 } from 'lucide-react';
 import { useState, useCallback } from 'react';
 
@@ -169,6 +176,27 @@ const slashCommands: SuggestionItem[] = createSuggestionItems([
     searchTerms: ['hr', 'divider', '구분선'],
     command: ({ editor, range }) => {
       editor.chain().focus().deleteRange(range).setHorizontalRule().run();
+    },
+  },
+  {
+    title: '표',
+    description: '3×3 표 삽입',
+    icon: <TableIcon className="size-4" />,
+    searchTerms: ['table', '표', '테이블'],
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+    },
+  },
+  {
+    title: 'Mermaid 다이어그램',
+    description: '플로우차트, 시퀀스 다이어그램 등',
+    icon: <GitBranch className="size-4" />,
+    searchTerms: ['mermaid', 'diagram', 'flow', 'chart', '다이어그램', '플로우'],
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).insertContent({
+        type: 'mermaidBlock',
+        attrs: { code: 'graph TD\n    A[시작] --> B{판단}\n    B -->|Yes| C[완료]\n    B -->|No| D[재시도]' },
+      }).run();
     },
   },
   {
@@ -356,13 +384,13 @@ const TEXT_COLORS = [
 
 const extensions = [
   StarterKit.configure({
-    bulletList: { HTMLAttributes: { class: 'list-disc pl-6' } },
-    orderedList: { HTMLAttributes: { class: 'list-decimal pl-6' } },
-    heading: { levels: [1, 2, 3] },
+    bulletList: { HTMLAttributes: { class: 'list-disc' } },
+    orderedList: { HTMLAttributes: { class: 'list-decimal' } },
+    heading: { levels: [1, 2, 3, 4] },
     codeBlock: { HTMLAttributes: { class: 'rounded-md bg-muted px-4 py-3 font-mono text-sm' } },
-    blockquote: { HTMLAttributes: { class: 'border-l-2 border-border pl-4 italic text-muted-foreground' } },
-    horizontalRule: { HTMLAttributes: { class: 'my-4 border-border' } },
-    code: { HTMLAttributes: { class: 'rounded bg-muted px-1.5 py-0.5 font-mono text-sm' } },
+    blockquote: {},
+    horizontalRule: {},
+    code: {},
   }),
   TaskList.configure({ HTMLAttributes: { class: 'not-prose pl-2' } }),
   TaskItem.configure({ HTMLAttributes: { class: 'flex items-start gap-2' }, nested: true }),
@@ -375,6 +403,11 @@ const extensions = [
   TextStyle,
   Color,
   HighlightExtension.configure({ multicolor: true }),
+  Table.configure({ resizable: true, HTMLAttributes: { class: 'editor-table' } }),
+  TableRow,
+  TableHeader,
+  TableCell,
+  MermaidExtension,
   GlobalDragHandle.configure({ dragHandleWidth: 24, scrollTreshold: 100 }),
   CharacterCount,
   CustomKeymap,
@@ -589,7 +622,7 @@ export function RichEditor({
             return false;
           },
           attributes: {
-            class: cn('prose-sm focus:outline-none', editable && 'min-h-[120px]'),
+            class: cn('focus:outline-none', editable && 'min-h-[120px]'),
           },
         }}
         className={cn(
@@ -746,10 +779,46 @@ function listElementToMarkdown(
   return lines;
 }
 
+function tableElementToMarkdownLines(table: Element): string[] {
+  const rows = Array.from(table.querySelectorAll('tr'));
+  if (rows.length === 0) return [];
+
+  const matrix: string[][] = [];
+  for (const row of rows) {
+    const cells = Array.from(row.querySelectorAll('th, td'));
+    matrix.push(cells.map((cell) => inlineHtmlNodesToMarkdown(Array.from(cell.childNodes)).trim().replace(/\|/g, '\\|')));
+  }
+
+  const colCount = Math.max(...matrix.map((r) => r.length));
+  const colWidths: number[] = Array.from({ length: colCount }, () => 3);
+  for (const row of matrix) {
+    for (let c = 0; c < colCount; c++) {
+      colWidths[c] = Math.max(colWidths[c], (row[c] || '').length);
+    }
+  }
+
+  const formatRow = (cells: string[]) =>
+    '| ' + Array.from({ length: colCount }, (_, c) => (cells[c] || '').padEnd(colWidths[c])).join(' | ') + ' |';
+
+  const lines: string[] = [];
+  lines.push(formatRow(matrix[0] || []));
+  lines.push('| ' + colWidths.map((w) => '-'.repeat(w)).join(' | ') + ' |');
+  for (let r = 1; r < matrix.length; r++) {
+    lines.push(formatRow(matrix[r]));
+  }
+  return lines;
+}
+
 function blockElementToMarkdownLines(element: Element): string[] {
   const tag = element.tagName.toLowerCase();
 
-  if (tag === 'h1' || tag === 'h2' || tag === 'h3') {
+  // mermaidBlock 노드 처리
+  if (tag === 'div' && element.getAttribute('data-type') === 'mermaid-block') {
+    const code = element.getAttribute('data-code') || '';
+    return ['```mermaid', code, '```'];
+  }
+
+  if (tag === 'h1' || tag === 'h2' || tag === 'h3' || tag === 'h4') {
     const level = Number(tag.slice(1));
     const heading = inlineHtmlNodesToMarkdown(Array.from(element.childNodes)).trim();
     return heading ? [`${'#'.repeat(level)} ${heading}`] : [];
@@ -777,6 +846,10 @@ function blockElementToMarkdownLines(element: Element): string[] {
 
   if (tag === 'ul' || tag === 'ol') {
     return listElementToMarkdown(element, tag, 0);
+  }
+
+  if (tag === 'table') {
+    return tableElementToMarkdownLines(element);
   }
 
   const inlineFallback = inlineHtmlNodesToMarkdown(Array.from(element.childNodes)).trim();
@@ -974,6 +1047,35 @@ function renderMarkdownListBlock(block: MarkdownListBlock): string {
   return html.join('\n');
 }
 
+function parseMarkdownTableRow(line: string): string[] {
+  return line.replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
+}
+
+function parseMarkdownTable(tableLines: string[]): string {
+  const headerCells = parseMarkdownTableRow(tableLines[0]);
+  // 2번째 줄이 separator(--- 등)인지 확인
+  const separatorIdx = tableLines.findIndex((l, i) => i > 0 && /^\|[\s:|-]+\|$/.test(l));
+  const dataStartIdx = separatorIdx >= 0 ? separatorIdx + 1 : 1;
+
+  const html: string[] = ['<table>'];
+  html.push('<tr>');
+  for (const cell of headerCells) {
+    html.push(`<th>${parseInlineMarkdown(cell.replace(/\\\|/g, '|'))}</th>`);
+  }
+  html.push('</tr>');
+
+  for (let i = dataStartIdx; i < tableLines.length; i++) {
+    const cells = parseMarkdownTableRow(tableLines[i]);
+    html.push('<tr>');
+    for (const cell of cells) {
+      html.push(`<td>${parseInlineMarkdown(cell.replace(/\\\|/g, '|'))}</td>`);
+    }
+    html.push('</tr>');
+  }
+  html.push('</table>');
+  return html.join('');
+}
+
 function markdownToHtml(markdown: string): string {
   const lines = markdown.replaceAll('\r\n', '\n').split('\n');
   const blocks: string[] = [];
@@ -986,6 +1088,20 @@ function markdownToHtml(markdown: string): string {
 
     if (trimmed.startsWith('```')) {
       if (!inCodeBlock) {
+        const lang = trimmed.slice(3).trim();
+        if (lang === 'mermaid') {
+          // mermaid 코드블록 → mermaidBlock 노드로 변환
+          index += 1;
+          const mermaidLines: string[] = [];
+          while (index < lines.length && !lines[index].trim().startsWith('```')) {
+            mermaidLines.push(lines[index]);
+            index += 1;
+          }
+          if (index < lines.length) index += 1; // 닫는 ``` 건너뜀
+          const mermaidCode = mermaidLines.join('\n');
+          blocks.push(`<div data-type="mermaid-block" data-code="${escapeHtml(mermaidCode)}"></div>`);
+          continue;
+        }
         blocks.push('<pre><code>');
       } else {
         blocks.push('</code></pre>');
@@ -1006,7 +1122,7 @@ function markdownToHtml(markdown: string): string {
       continue;
     }
 
-    const heading = line.match(/^(#{1,3})\s+(.+)$/);
+    const heading = line.match(/^(#{1,4})\s+(.+)$/);
     if (heading) {
       const level = heading[1].length;
       blocks.push(`<h${level}>${parseInlineMarkdown(heading[2])}</h${level}>`);
@@ -1020,6 +1136,23 @@ function markdownToHtml(markdown: string): string {
       continue;
     }
 
+    // 마크다운 테이블 파싱
+    if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+      const tableLines: string[] = [];
+      while (index < lines.length) {
+        const tl = lines[index].trim();
+        if (!tl.startsWith('|') || !tl.endsWith('|')) break;
+        tableLines.push(tl);
+        index += 1;
+      }
+      if (tableLines.length >= 2) {
+        blocks.push(parseMarkdownTable(tableLines));
+        continue;
+      }
+      // 테이블이 아닌 경우 index 되돌리고 아래로 진행
+      index -= tableLines.length;
+    }
+
     const listLine = parseMarkdownListLine(line);
     if (listLine) {
       const parsedList = parseMarkdownListBlock(lines, index, listLine.indent, listLine.type);
@@ -1028,10 +1161,41 @@ function markdownToHtml(markdown: string): string {
       continue;
     }
 
-    const quote = line.match(/^\s*>\s+(.+)$/);
-    if (quote) {
-      blocks.push(`<blockquote><p>${parseInlineMarkdown(quote[1])}</p></blockquote>`);
-      index += 1;
+    // 연속된 > 줄을 하나의 blockquote로 합침 (lazy continuation 지원)
+    if (/^\s*>/.test(line)) {
+      const quoteLines: string[] = [];
+
+      while (index < lines.length) {
+        const cur = lines[index];
+        if (/^\s*>/.test(cur)) {
+          // > 로 시작하는 줄
+          quoteLines.push(cur.replace(/^\s*>\s?/, ''));
+          index += 1;
+        } else if (cur.trim() !== '' && quoteLines.length > 0 && quoteLines[quoteLines.length - 1].trim() !== '') {
+          // lazy continuation: > 없지만 빈 줄이 아니고, 직전이 빈 줄이 아닌 경우
+          quoteLines.push(cur);
+          index += 1;
+        } else {
+          break;
+        }
+      }
+
+      const paragraphs: string[] = [];
+      let current: string[] = [];
+      for (const ql of quoteLines) {
+        if (ql.trim() === '') {
+          if (current.length > 0) {
+            paragraphs.push(`<p>${current.map(parseInlineMarkdown).join(' ')}</p>`);
+            current = [];
+          }
+        } else {
+          current.push(ql);
+        }
+      }
+      if (current.length > 0) {
+        paragraphs.push(`<p>${current.map(parseInlineMarkdown).join(' ')}</p>`);
+      }
+      blocks.push(`<blockquote>${paragraphs.join('')}</blockquote>`);
       continue;
     }
 

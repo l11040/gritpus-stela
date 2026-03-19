@@ -36,6 +36,9 @@ export class MdDocument {
   @Column({ type: 'json', nullable: true })
   summaryJson: object;
 
+  @Column({ type: 'json', nullable: true })
+  slidesJson: object;
+
   @OneToMany(() => MdDocumentVersion, (v) => v.document)
   versions: MdDocumentVersion[];
 

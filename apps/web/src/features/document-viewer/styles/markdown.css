@@ -102,7 +102,7 @@
 .md-content table {
   width: 100%;
   border-collapse: collapse;
-  margin: 1rem 0;
+  margin: 0;
   font-size: 0.9rem;
 }
 
@@ -116,13 +116,6 @@
   letter-spacing: 0.3px;
 }
 
-.md-content th:first-child {
-  border-radius: 8px 0 0 0;
-}
-
-.md-content th:last-child {
-  border-radius: 0 8px 0 0;
-}
 
 .md-content td {
   padding: 0.7rem 1rem;
@@ -177,7 +170,7 @@
 
 /* Mermaid diagram container */
 .mermaid-container svg {
-  max-width: 100%;
+  width: 100%;
   height: auto;
 }
 

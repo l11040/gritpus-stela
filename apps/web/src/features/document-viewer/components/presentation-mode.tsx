@@ -18,7 +18,7 @@ export function PresentationMode({ content, onExit }: PresentationModeProps) {
   const slides = splitIntoSlides(content);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isTocOpen, setIsTocOpen] = useState(false);
-  const { enterFullscreen, exitFullscreen } = useFullscreen();
+  const { isFullscreen, enterFullscreen, exitFullscreen, toggleFullscreen } = useFullscreen();
 
   useEffect(() => {
     enterFullscreen();
@@ -44,6 +44,7 @@ export function PresentationMode({ content, onExit }: PresentationModeProps) {
     onNext: goNext,
     onPrev: goPrev,
     onExit: handleExit,
+    onToggleFullscreen: toggleFullscreen,
     enabled: !isTocOpen,
   });
 
@@ -60,6 +61,8 @@ export function PresentationMode({ content, onExit }: PresentationModeProps) {
         onPrev={goPrev}
         onNext={goNext}
         onExit={handleExit}
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={toggleFullscreen}
       />
       <SlideToc
         slides={slides}

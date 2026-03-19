@@ -5,6 +5,7 @@ import {
   ApiBody,
   ApiResponse,
   ApiParam,
+  ApiQuery,
 } from '@nestjs/swagger';
 
 export function CreateMdDocumentDocs() {
@@ -35,6 +36,9 @@ export function CreateMdDocumentDocs() {
 export function GetMdDocumentsDocs() {
   return applyDecorators(
     ApiOperation({ summary: '내 문서 + 공유 문서 목록' }),
+    ApiQuery({ name: 'search', required: false, description: '제목/작성자 검색' }),
+    ApiQuery({ name: 'shared', required: false, enum: ['true', 'false'], description: '공유 필터 (true=공유만, false=비공개만, 생략=전체)' }),
+    ApiQuery({ name: 'sort', required: false, enum: ['updated', 'created', 'title'], description: '정렬 (기본: updated)' }),
     ApiResponse({ status: 200, description: '문서 목록' }),
     ApiResponse({ status: 401, description: '인증 실패' }),
   );
@@ -108,6 +112,51 @@ export function ToggleSharingDocs() {
   );
 }
 
+export function ExportPdfDocs() {
+  return applyDecorators(
+    ApiOperation({ summary: '문서를 PDF로 내보내기' }),
+    ApiParam({ name: 'id', description: '문서 ID' }),
+    ApiResponse({
+      status: 200,
+      description: 'PDF 파일',
+      content: { 'application/pdf': {} },
+    }),
+    ApiResponse({ status: 400, description: '내보낼 내용 없음' }),
+    ApiResponse({ status: 403, description: '접근 권한 없음' }),
+    ApiResponse({ status: 404, description: '문서 없음' }),
+  );
+}
+
+export function ExportPresentationPdfDocs() {
+  return applyDecorators(
+    ApiOperation({ summary: '마크다운 프레젠테이션 PDF 내보내기' }),
+    ApiParam({ name: 'id', description: '문서 ID' }),
+    ApiResponse({
+      status: 200,
+      description: '프레젠테이션 PDF 파일 (가로)',
+      content: { 'application/pdf': {} },
+    }),
+    ApiResponse({ status: 400, description: '내보낼 내용 없음' }),
+    ApiResponse({ status: 403, description: '접근 권한 없음' }),
+    ApiResponse({ status: 404, description: '문서 없음' }),
+  );
+}
+
+export function ExportSlidesPdfDocs() {
+  return applyDecorators(
+    ApiOperation({ summary: 'AI 슬라이드 PDF 내보내기' }),
+    ApiParam({ name: 'id', description: '문서 ID' }),
+    ApiResponse({
+      status: 200,
+      description: 'AI 슬라이드 PDF 파일 (가로)',
+      content: { 'application/pdf': {} },
+    }),
+    ApiResponse({ status: 400, description: 'AI 슬라이드 미생성' }),
+    ApiResponse({ status: 403, description: '접근 권한 없음' }),
+    ApiResponse({ status: 404, description: '문서 없음' }),
+  );
+}
+
 export function SummarizeMdDocumentDocs() {
   return applyDecorators(
     ApiOperation({ summary: 'AI 문서 요약 (비동기)' }),
@@ -123,5 +172,36 @@ export function SummarizeEventsDocs() {
     ApiOperation({ summary: '요약 진행 상황 SSE 스트림' }),
     ApiParam({ name: 'id', description: '문서 ID' }),
     ApiResponse({ status: 200, description: 'SSE 스트림' }),
+  );
+}
+
+export function GenerateSlidesDocs() {
+  return applyDecorators(
+    ApiOperation({ summary: 'AI 기반 슬라이드 생성 (비동기)' }),
+    ApiParam({ name: 'id', description: '문서 ID' }),
+    ApiResponse({ status: 202, description: '슬라이드 생성 시작됨' }),
+    ApiResponse({ status: 400, description: '슬라이드 생성할 내용 없음' }),
+    ApiResponse({ status: 401, description: '인증 실패' }),
+    ApiResponse({ status: 403, description: '접근 권한 없음' }),
+    ApiResponse({ status: 404, description: '문서 없음' }),
+  );
+}
+
+export function SlidesEventsDocs() {
+  return applyDecorators(
+    ApiOperation({ summary: '슬라이드 생성 진행 상황 SSE 스트림' }),
+    ApiParam({ name: 'id', description: '문서 ID' }),
+    ApiResponse({ status: 200, description: 'SSE 스트림' }),
+  );
+}
+
+export function GetSlidesDocs() {
+  return applyDecorators(
+    ApiOperation({ summary: '저장된 슬라이드 JSON 조회' }),
+    ApiParam({ name: 'id', description: '문서 ID' }),
+    ApiResponse({ status: 200, description: '슬라이드 JSON (없으면 null)' }),
+    ApiResponse({ status: 401, description: '인증 실패' }),
+    ApiResponse({ status: 403, description: '접근 권한 없음' }),
+    ApiResponse({ status: 404, description: '문서 없음' }),
   );
 }

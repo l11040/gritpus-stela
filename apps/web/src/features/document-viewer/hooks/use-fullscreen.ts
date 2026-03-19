@@ -31,5 +31,13 @@ export function useFullscreen() {
     }
   }, []);
 
-  return { isFullscreen, enterFullscreen, exitFullscreen };
+  const toggleFullscreen = useCallback(async () => {
+    if (document.fullscreenElement) {
+      await exitFullscreen();
+    } else {
+      await enterFullscreen();
+    }
+  }, [enterFullscreen, exitFullscreen]);
+
+  return { isFullscreen, enterFullscreen, exitFullscreen, toggleFullscreen };
 }

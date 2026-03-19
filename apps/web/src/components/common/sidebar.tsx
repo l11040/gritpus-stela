@@ -167,7 +167,7 @@ export function Sidebar({
                 <FileText className="size-4" />
               </Link>
             </TooltipTrigger>
-            <TooltipContent side="right" className="text-xs">문서</TooltipContent>
+            <TooltipContent side="right" className="text-xs">마크다운 뷰어</TooltipContent>
           </Tooltip>
         </nav>
 
@@ -281,7 +281,7 @@ export function Sidebar({
         <NavItem
           href="/docs"
           icon={FileText}
-          label="문서"
+          label="마크다운 뷰어"
           active={pathname.startsWith('/docs')}
         />
       </nav>

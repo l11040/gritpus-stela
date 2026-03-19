@@ -4,7 +4,11 @@ import { ConfigService } from '@nestjs/config';
 const SUMMARY_TIMEOUT_MS = 120_000;
 
 interface SummaryResult {
-  keyPoints: string[];
+  slideCount: number;
+  estimatedDuration: string;
+  keyMessages: string[];
+  audienceNotes: string;
+  suggestedFlow: { section: string; description: string; slides: number }[];
   tableOfContents: { title: string; level: number }[];
   estimatedReadTime: number;
 }
@@ -48,13 +52,21 @@ export class MdDocumentSummaryService {
       }
 
       const data = (await res.json()) as { response: string };
-      const keyPoints = this.parseKeyPoints(data.response);
+      const analysis = this.parseAnalysis(data.response);
 
-      return { keyPoints, tableOfContents: toc, estimatedReadTime: readTime };
+      return {
+        ...analysis,
+        tableOfContents: toc,
+        estimatedReadTime: readTime,
+      };
     } catch (err) {
       this.logger.warn(`Document summary LLM call failed: ${err}`);
       return {
-        keyPoints: ['요약 생성에 실패했습니다. 원본 문서를 확인해주세요.'],
+        slideCount: toc.filter((h) => h.level <= 2).length + 2,
+        estimatedDuration: `${readTime * 2}분`,
+        keyMessages: ['분석 생성에 실패했습니다. 원본 문서를 확인해주세요.'],
+        audienceNotes: '',
+        suggestedFlow: [],
         tableOfContents: toc,
         estimatedReadTime: readTime,
       };
@@ -65,7 +77,7 @@ export class MdDocumentSummaryService {
     const truncated =
       content.length > 16000 ? content.slice(0, 16000) + '...' : content;
 
-    return `You are a document analyst. Analyze the following markdown document and extract 3-7 key points.
+    return `You are a presentation coach and document analyst. Analyze the following markdown document and prepare a presentation analysis.
 
 ## Document
 ---
@@ -73,29 +85,70 @@ ${truncated}
 ---
 
 ## Instructions
-1. Extract 3-7 key points that summarize the document's most important information.
-2. Each key point should be a concise sentence in the same language as the document.
-3. Output ONLY a JSON array of strings, no other text.
+Analyze this document for presentation preparation. Output ONLY a JSON object (no other text) with the following structure:
 
-Example output:
-["첫 번째 핵심 포인트", "두 번째 핵심 포인트", "세 번째 핵심 포인트"]`;
+{
+  "slideCount": <recommended total number of slides>,
+  "estimatedDuration": "<estimated presentation time, e.g. '15분'>",
+  "keyMessages": ["핵심 메시지 1", "핵심 메시지 2", ...],
+  "audienceNotes": "<audience analysis and tips for the presenter>",
+  "suggestedFlow": [
+    { "section": "도입", "description": "배경 설명 및 목적 제시", "slides": 2 },
+    { "section": "본론", "description": "핵심 내용 전개", "slides": 4 },
+    { "section": "결론", "description": "요약 및 다음 단계", "slides": 2 }
+  ]
+}
+
+Rules:
+1. All text must be in the same language as the document.
+2. keyMessages should have 3-7 items, each a concise sentence.
+3. suggestedFlow should break the document into logical presentation sections.
+4. audienceNotes should include who the target audience is and presentation tips.
+5. Output ONLY the JSON object, no markdown code fences or other text.`;
   }
 
-  private parseKeyPoints(response: string): string[] {
+  private parseAnalysis(
+    response: string,
+  ): Omit<SummaryResult, 'tableOfContents' | 'estimatedReadTime'> {
+    const fallback = {
+      slideCount: 8,
+      estimatedDuration: '15분',
+      keyMessages: ['분석을 파싱할 수 없습니다.'],
+      audienceNotes: '',
+      suggestedFlow: [],
+    };
+
     try {
       const jsonMatch =
-        response.match(/\[[\s\S]*?\]/) ||
+        response.match(/\{[\s\S]*\}/) ||
         response.match(/```json\s*([\s\S]*?)```/i);
-      if (!jsonMatch) return ['요약을 파싱할 수 없습니다.'];
+      if (!jsonMatch) return fallback;
 
       const text = jsonMatch[1] || jsonMatch[0];
       const parsed = JSON.parse(text.trim());
-      if (Array.isArray(parsed) && parsed.every((p) => typeof p === 'string')) {
-        return parsed;
-      }
-      return ['요약을 파싱할 수 없습니다.'];
+
+      return {
+        slideCount:
+          typeof parsed.slideCount === 'number' ? parsed.slideCount : 8,
+        estimatedDuration:
+          typeof parsed.estimatedDuration === 'string'
+            ? parsed.estimatedDuration
+            : '15분',
+        keyMessages: Array.isArray(parsed.keyMessages)
+          ? parsed.keyMessages.filter(
+              (m: unknown) => typeof m === 'string',
+            )
+          : fallback.keyMessages,
+        audienceNotes:
+          typeof parsed.audienceNotes === 'string'
+            ? parsed.audienceNotes
+            : '',
+        suggestedFlow: Array.isArray(parsed.suggestedFlow)
+          ? parsed.suggestedFlow
+          : [],
+      };
     } catch {
-      return ['요약을 파싱할 수 없습니다.'];
+      return fallback;
     }
   }
 

@@ -81,7 +81,11 @@ export interface ParsedActionItem {
 // ─── MdDocument ───
 
 export interface MdDocumentSummary {
-  keyPoints: string[];
+  slideCount: number;
+  estimatedDuration: string;
+  keyMessages: string[];
+  audienceNotes: string;
+  suggestedFlow: { section: string; description: string; slides: number }[];
   tableOfContents: { title: string; level: number }[];
   estimatedReadTime: number;
 }

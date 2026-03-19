@@ -6,6 +6,7 @@ interface UseKeyboardNavProps {
   onNext: () => void;
   onPrev: () => void;
   onExit: () => void;
+  onToggleFullscreen?: () => void;
   enabled: boolean;
 }
 
@@ -13,6 +14,7 @@ export function useKeyboardNav({
   onNext,
   onPrev,
   onExit,
+  onToggleFullscreen,
   enabled,
 }: UseKeyboardNavProps) {
   useEffect(() => {
@@ -33,10 +35,15 @@ export function useKeyboardNav({
           e.preventDefault();
           onExit();
           break;
+        case 'f':
+        case 'F':
+          e.preventDefault();
+          onToggleFullscreen?.();
+          break;
       }
     };
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [onNext, onPrev, onExit, enabled]);
+  }, [onNext, onPrev, onExit, onToggleFullscreen, enabled]);
 }

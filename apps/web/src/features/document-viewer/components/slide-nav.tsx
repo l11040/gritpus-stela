@@ -2,6 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { X, ChevronLeft, ChevronRight, Maximize, Minimize } from 'lucide-react';
 
 interface SlideNavProps {
   currentSlide: number;
@@ -9,6 +10,8 @@ interface SlideNavProps {
   onPrev: () => void;
   onNext: () => void;
   onExit: () => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
 export function SlideNav({
@@ -17,6 +20,8 @@ export function SlideNav({
   onPrev,
   onNext,
   onExit,
+  isFullscreen,
+  onToggleFullscreen,
 }: SlideNavProps) {
   const progress = ((currentSlide + 1) / totalSlides) * 100;
 
@@ -32,19 +37,7 @@ export function SlideNav({
           title="문서 모드로 돌아가기 (Esc)"
           className="h-8 cursor-pointer gap-1.5 px-3 text-xs text-white/70 hover:bg-white/10 hover:text-white"
         >
-          <svg
-            className="h-3.5 w-3.5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
+          <X className="size-3.5" />
           닫기
         </Button>
 
@@ -57,19 +50,7 @@ export function SlideNav({
             title="이전 (←)"
             className="h-8 w-8 cursor-pointer text-white/70 hover:bg-white/10 hover:text-white disabled:text-white/20 disabled:hover:bg-transparent"
           >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
+            <ChevronLeft className="size-4" />
           </Button>
 
           <span className="min-w-[48px] select-none text-center text-xs font-medium tabular-nums text-white/60">
@@ -89,25 +70,34 @@ export function SlideNav({
             title="다음 (→)"
             className="h-8 w-8 cursor-pointer text-white/70 hover:bg-white/10 hover:text-white disabled:text-white/20 disabled:hover:bg-transparent"
           >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 5l7 7-7 7"
-              />
-            </svg>
+            <ChevronRight className="size-4" />
           </Button>
         </div>
 
-        <span className="select-none text-[10px] tracking-wider text-white/30">
-          ← → Space
-        </span>
+        <div className="flex items-center gap-2">
+          {onToggleFullscreen && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onToggleFullscreen}
+              title={isFullscreen ? '전체화면 해제 (F)' : '전체화면 (F)'}
+              className="h-8 cursor-pointer gap-1.5 px-3 text-xs text-white/70 hover:bg-white/10 hover:text-white"
+            >
+              {isFullscreen ? (
+                <>
+                  <Minimize className="size-3.5" />
+                  전체화면 해제
+                </>
+              ) : (
+                <>
+                  <Maximize className="size-3.5" />
+                  전체화면
+                </>
+              )}
+              <kbd className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-medium text-white/50">F</kbd>
+            </Button>
+          )}
+        </div>
       </nav>
     </>
   );

@@ -10,18 +10,24 @@ import { MermaidBlock } from './mermaid-block';
 import { Callout, isCalloutType } from './callout';
 import { ImageZoom } from './image-zoom';
 import type { Components } from 'react-markdown';
-import type { ReactNode } from 'react';
+import { memo, type ReactNode } from 'react';
 import '../styles/markdown.css';
 
 interface MarkdownRendererProps {
   content: string;
 }
 
-function makeId(text: string) {
-  return text
+function makeHeadingId(text: string, counts: Map<string, number>): string {
+  let id = text
     .toLowerCase()
     .replace(/[^\w\s가-힣-]/g, '')
     .replace(/\s+/g, '-');
+  const count = counts.get(id) || 0;
+  counts.set(id, count + 1);
+  if (count > 0) {
+    id = `${id}-${count}`;
+  }
+  return id;
 }
 
 function HeadingAnchor({
@@ -36,7 +42,7 @@ function HeadingAnchor({
   const anchor = (
     <a
       href={`#${id}`}
-      className="absolute -left-6 top-0 text-muted-foreground opacity-0 transition-opacity no-underline hover:text-primary group-hover:opacity-100"
+      className="heading-anchor absolute -left-6 top-0 text-muted-foreground opacity-0 transition-opacity no-underline hover:text-primary group-hover:opacity-100"
       aria-hidden="true"
     >
       #
@@ -94,25 +100,28 @@ function isAsciiArt(text: string): boolean {
   return artLines.length / lines.length > 0.4;
 }
 
-export function MarkdownRenderer({ content }: MarkdownRendererProps) {
+export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: MarkdownRendererProps) {
+  // 매 렌더마다 새 counts Map을 생성하여 ID가 렌더 횟수에 의존하지 않도록 함
+  const idCounts = new Map<string, number>();
+
   const components: Components = {
     h1: ({ children }) => (
-      <HeadingAnchor id={makeId(String(children))} level={1}>
+      <HeadingAnchor id={makeHeadingId(String(children), idCounts)} level={1}>
         {children}
       </HeadingAnchor>
     ),
     h2: ({ children }) => (
-      <HeadingAnchor id={makeId(String(children))} level={2}>
+      <HeadingAnchor id={makeHeadingId(String(children), idCounts)} level={2}>
         {children}
       </HeadingAnchor>
     ),
     h3: ({ children }) => (
-      <HeadingAnchor id={makeId(String(children))} level={3}>
+      <HeadingAnchor id={makeHeadingId(String(children), idCounts)} level={3}>
         {children}
       </HeadingAnchor>
     ),
     h4: ({ children }) => (
-      <HeadingAnchor id={makeId(String(children))} level={4}>
+      <HeadingAnchor id={makeHeadingId(String(children), idCounts)} level={4}>
         {children}
       </HeadingAnchor>
     ),
@@ -182,7 +191,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
       return <blockquote>{children}</blockquote>;
     },
     table: ({ children, ...props }) => (
-      <div className="my-4 overflow-x-auto rounded-lg border border-border">
+      <div className="my-4 overflow-hidden rounded-lg border border-border">
         <table {...props}>{children}</table>
       </div>
     ),
@@ -200,4 +209,4 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
       </ReactMarkdown>
     </div>
   );
-}
+});

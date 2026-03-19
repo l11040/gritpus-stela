@@ -1,11 +1,14 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useId, memo } from 'react';
 import mermaid from 'mermaid';
+import { PannableSvg } from './pannable-svg';
 
-let idCounter = 0;
+let initialized = false;
 
-function initMermaid() {
+function ensureInit() {
+  if (initialized) return;
+  initialized = true;
   mermaid.initialize({
     startOnLoad: false,
     theme: 'default',
@@ -18,31 +21,46 @@ interface MermaidBlockProps {
   chart: string;
 }
 
-export function MermaidBlock({ chart }: MermaidBlockProps) {
+export const MermaidBlock = memo(function MermaidBlock({ chart }: MermaidBlockProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [svg, setSvg] = useState<string>('');
   const [error, setError] = useState<string>('');
-  const idRef = useRef(`mermaid-${++idCounter}`);
+  const reactId = useId();
+  const idRef = useRef(`mermaid-${reactId.replace(/:/g, '')}`);
+  const renderedChartRef = useRef<string>('');
 
   useEffect(() => {
-    initMermaid();
+    // 같은 chart가 이미 렌더된 경우 스킵
+    if (chart === renderedChartRef.current && svg) return;
+
+    ensureInit();
+
+    let cancelled = false;
 
     const renderChart = async () => {
       try {
-        const { svg: renderedSvg } = await mermaid.render(
-          idRef.current,
-          chart,
-        );
-        setSvg(renderedSvg);
-        setError('');
+        // mermaid.render는 같은 ID를 재사용하면 에러가 날 수 있으므로 임시 ID 사용
+        const tempId = `${idRef.current}-${Date.now()}`;
+        const { svg: renderedSvg } = await mermaid.render(tempId, chart);
+        if (!cancelled) {
+          setSvg(renderedSvg);
+          setError('');
+          renderedChartRef.current = chart;
+        }
       } catch (err) {
-        setError(String(err));
-        setSvg('');
+        if (!cancelled) {
+          setError(String(err));
+          setSvg('');
+        }
       }
     };
 
     renderChart();
-  }, [chart]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chart]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (error) {
     return (
@@ -66,12 +84,8 @@ export function MermaidBlock({ chart }: MermaidBlockProps) {
   }
 
   return (
-    <div className="my-4 flex justify-center">
-      <div
-        ref={containerRef}
-        className="mermaid-container max-w-full overflow-x-auto rounded-lg border border-border bg-muted/30 p-4"
-        dangerouslySetInnerHTML={{ __html: svg }}
-      />
+    <div className="my-4 rounded-lg border border-border">
+      <PannableSvg svg={svg} className="mermaid-container min-h-[200px]" />
     </div>
   );
-}
+});

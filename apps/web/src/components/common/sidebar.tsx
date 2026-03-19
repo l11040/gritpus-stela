@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
   ClipboardList,
+  FileText,
   Settings,
   Plus,
   LogOut,
@@ -151,6 +152,23 @@ export function Sidebar({
             </TooltipTrigger>
             <TooltipContent side="right" className="text-xs">주간 업무</TooltipContent>
           </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                href="/docs"
+                className={cn(
+                  'rounded-md p-2 transition-all duration-150',
+                  pathname.startsWith('/docs')
+                    ? 'bg-muted text-foreground'
+                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+                )}
+              >
+                <FileText className="size-4" />
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="text-xs">문서</TooltipContent>
+          </Tooltip>
         </nav>
 
         <div className="flex flex-col items-center gap-1 border-t border-border p-1.5">
@@ -258,6 +276,13 @@ export function Sidebar({
           icon={ClipboardList}
           label="주간 업무"
           active={pathname.startsWith('/weekly')}
+        />
+
+        <NavItem
+          href="/docs"
+          icon={FileText}
+          label="문서"
+          active={pathname.startsWith('/docs')}
         />
       </nav>
 

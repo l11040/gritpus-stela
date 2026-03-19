@@ -77,3 +77,18 @@ export interface ParsedActionItem {
   dueDate?: string;
   suggestedLabels?: string[];
 }
+
+// ─── MdDocument ───
+
+export interface MdDocumentSummary {
+  keyPoints: string[];
+  tableOfContents: { title: string; level: number }[];
+  estimatedReadTime: number;
+}
+
+export enum MdDocumentSummaryStatus {
+  IDLE = 'idle',
+  PROCESSING = 'processing',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+}

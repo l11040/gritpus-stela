@@ -13,6 +13,7 @@ import { MeetingModule } from './meeting/meeting.module';
 import { UploadModule } from './upload/upload.module';
 import { NotificationModule } from './notification/notification.module';
 import { WeeklyWorkModule } from './weekly-work/weekly-work.module';
+import { MdDocumentModule } from './md-document/md-document.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { WeeklyWorkModule } from './weekly-work/weekly-work.module';
     UploadModule,
     NotificationModule,
     WeeklyWorkModule,
+    MdDocumentModule,
   ],
   controllers: [AppController],
   providers: [

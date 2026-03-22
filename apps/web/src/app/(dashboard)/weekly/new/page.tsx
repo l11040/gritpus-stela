@@ -22,7 +22,6 @@ import {
   composeSourceText,
   getCurrentWeekStartDate,
   shiftWeekStartDate,
-  toSlackHtml,
   toSlackPasteText,
 } from '@/features/weekly-work/utils';
 import { WeekDatePicker } from '@/features/weekly-work/components/week-date-picker';
@@ -260,20 +259,10 @@ export default function WeeklyWorkNewPage() {
     }
 
     const slackText = toSlackPasteText(source);
-    const slackHtml = toSlackHtml(source);
 
     try {
-      const clipboard = navigator.clipboard;
-      const ClipboardItemCtor = window.ClipboardItem;
-
-      if (clipboard?.write && ClipboardItemCtor) {
-        const item = new ClipboardItemCtor({
-          'text/plain': new Blob([slackText], { type: 'text/plain' }),
-          'text/html': new Blob([slackHtml], { type: 'text/html' }),
-        });
-        await clipboard.write([item]);
-      } else if (clipboard?.writeText) {
-        await clipboard.writeText(slackText);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(slackText);
       } else {
         throw new Error('Clipboard API not available');
       }

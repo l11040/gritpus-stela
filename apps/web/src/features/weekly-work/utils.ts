@@ -64,8 +64,9 @@ export function toSlackPasteText(markdown: string): string {
     if (token.type === 'blank') return '';
     if (token.type === 'text') return inlineToSlackPasteText(token.text);
 
+    const bullet = token.depth % 2 === 0 ? '●' : '○';
     const indent = '\u00A0'.repeat(token.depth * 4);
-    return `${indent}•\u00A0 ${inlineToSlackPasteText(token.text)}`;
+    return `${indent}${bullet}\u00A0 ${inlineToSlackPasteText(token.text)}`;
   });
 
   return converted.join('\n').replace(/\n{3,}/g, '\n\n').trim();
@@ -73,22 +74,36 @@ export function toSlackPasteText(markdown: string): string {
 
 export function toSlackHtml(markdown: string): string {
   const tokens = tokenizeMarkdownForSlack(markdown);
-  const html = tokens
-    .map((token) => {
+  const parts: string[] = [];
+
+  let inList = false;
+
+  for (const token of tokens) {
+    if (token.type === 'bullet') {
+      if (!inList) {
+        parts.push('<ul>');
+        inList = true;
+      }
+      const indentClass = token.depth > 0 ? ` class="ql-indent-${token.depth}"` : '';
+      parts.push(`<li${indentClass}>${inlineToHtml(token.text)}</li>`);
+    } else {
+      if (inList) {
+        parts.push('</ul>');
+        inList = false;
+      }
       if (token.type === 'blank') {
-        return '<div><br/></div>';
+        parts.push('<br/>');
+      } else {
+        parts.push(`<p>${inlineToHtml(token.text)}</p>`);
       }
+    }
+  }
 
-      if (token.type === 'text') {
-        return `<div>${inlineToHtml(token.text)}</div>`;
-      }
+  if (inList) {
+    parts.push('</ul>');
+  }
 
-      const indent = '&nbsp;'.repeat(token.depth * 4);
-      return `<div>${indent}&bull;&nbsp;&nbsp;${inlineToHtml(token.text)}</div>`;
-    })
-    .join('');
-
-  return `<div>${html}</div>`;
+  return parts.join('');
 }
 
 type SlackToken =
@@ -198,10 +213,8 @@ function inlineToSlackPasteText(text: string): string {
   return text
     .replace(/^#{1,6}\s+/, '')
     .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '$1 ($2)')
-    .replace(/\*\*(.+?)\*\*/g, '$1')
-    .replace(/(^|[\s(])\*([^*\n]+)\*(?=$|[\s),.:;!?])/g, '$1$2')
-    .replace(/(^|[\s(])_([^_\n]+)_(?=$|[\s),.:;!?])/g, '$1$2')
-    .replace(/~~(.+?)~~/g, '$1');
+    .replace(/\*\*(.+?)\*\*/g, '*$1*')
+    .replace(/~~(.+?)~~/g, '~$1~');
 }
 
 function resolveListDepth(leadingSpaces: number): number {

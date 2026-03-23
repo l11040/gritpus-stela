@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, CurrentUserPayload } from '../common/decorators/current-user.decorator';
 import {
+  CreateWeeklyWorkProjectDto,
   GenerateWeeklyWorkDto,
   WeeklyWorkHistoryQueryDto,
   WeeklyWorkUsersQueryDto,
@@ -10,10 +11,13 @@ import {
 } from './weekly-work.dto';
 import { WeeklyWorkService } from './weekly-work.service';
 import {
+  CreateWeeklyWorkProjectDocs,
   DeleteWeeklyWorkHistoryDocs,
+  DeleteWeeklyWorkProjectDocs,
   GenerateWeeklyWorkDocs,
   GetWeeklyWorkHistoryDocs,
   GetWeeklyWorkHistoryOneDocs,
+  GetWeeklyWorkProjectsDocs,
   GetWeeklyWorkUsersDocs,
   UpdateWeeklyWorkHistoryDocs,
 } from './weekly-work.swagger';
@@ -41,6 +45,24 @@ export class WeeklyWorkController {
     @Query() query: WeeklyWorkHistoryQueryDto,
   ) {
     return this.weeklyWorkService.getHistory(user.id, query);
+  }
+
+  @Get('projects')
+  @GetWeeklyWorkProjectsDocs()
+  getProjects() {
+    return this.weeklyWorkService.getProjects();
+  }
+
+  @Post('projects')
+  @CreateWeeklyWorkProjectDocs()
+  createProject(@Body() dto: CreateWeeklyWorkProjectDto) {
+    return this.weeklyWorkService.createProject(dto);
+  }
+
+  @Delete('projects/:projectId')
+  @DeleteWeeklyWorkProjectDocs()
+  deleteProject(@Param('projectId') projectId: string) {
+    return this.weeklyWorkService.deleteProject(projectId);
   }
 
   @Get('users')

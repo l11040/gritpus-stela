@@ -17,16 +17,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  INCLUDE_RECURRING_STORAGE_KEY,
-  RECURRING_MEETING_STORAGE_KEY,
   composeSourceText,
   getCurrentWeekStartDate,
+  getIncludeRecurringStorageKey,
+  getRecurringMeetingStorageKey,
   shiftWeekStartDate,
   toSlackHtml,
   toSlackPasteText,
 } from '@/features/weekly-work/utils';
 import { WeekDatePicker } from '@/features/weekly-work/components/week-date-picker';
-import type { WeeklyType, InputType, WeeklyWorkHistory } from '@/features/weekly-work/types';
+import type { WeeklyType, InputType, WeeklyWorkHistory, WeeklyWorkProject } from '@/features/weekly-work/types';
 import { ArrowLeft, ChevronLeft, ChevronRight, Copy, Mic, MicOff, Save, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -44,6 +44,7 @@ type GeneratePayload = {
   weekStartDate: string;
   overwriteExisting: true;
   planReferenceId?: string;
+  projectId: string;
 };
 
 export default function WeeklyWorkNewPage() {
@@ -62,6 +63,8 @@ export default function WeeklyWorkNewPage() {
   const [markdownDraft, setMarkdownDraft] = useState('');
   const [lastGeneratePayload, setLastGeneratePayload] = useState<GeneratePayload | null>(null);
   const [planHistories, setPlanHistories] = useState<WeeklyWorkHistory[]>([]);
+  const [projects, setProjects] = useState<WeeklyWorkProject[]>([]);
+  const [projectId, setProjectId] = useState('');
 
   const [recurringMeetings, setRecurringMeetings] = useState('');
   const [includeRecurringMeetings, setIncludeRecurringMeetings] = useState(true);
@@ -88,16 +91,30 @@ export default function WeeklyWorkNewPage() {
   }, [weekStartDate]);
 
   useEffect(() => {
-    const savedRecurring = window.localStorage.getItem(RECURRING_MEETING_STORAGE_KEY);
-    if (savedRecurring) {
-      setRecurringMeetings(savedRecurring);
-    }
+    fetcher<WeeklyWorkProject[]>({
+      url: '/weekly-work/projects',
+      method: 'GET',
+    }).then((rows) => {
+      setProjects(rows);
+      if (rows.length > 0 && !projectId) {
+        setProjectId(rows[0].id);
+      }
+    }).catch(() => {
+      toast.error('프로젝트 목록을 불러오지 못했습니다.');
+    });
+  }, []);
 
-    const savedIncludeRecurring = window.localStorage.getItem(INCLUDE_RECURRING_STORAGE_KEY);
-    if (savedIncludeRecurring !== null) {
-      setIncludeRecurringMeetings(savedIncludeRecurring === '1');
-    }
+  useEffect(() => {
+    if (!projectId) return;
 
+    const savedRecurring = window.localStorage.getItem(getRecurringMeetingStorageKey(projectId));
+    setRecurringMeetings(savedRecurring || '');
+
+    const savedIncludeRecurring = window.localStorage.getItem(getIncludeRecurringStorageKey(projectId));
+    setIncludeRecurringMeetings(savedIncludeRecurring !== '0');
+  }, [projectId]);
+
+  useEffect(() => {
     return () => {
       if (recognitionRef.current && isListening) {
         recognitionRef.current.stop();
@@ -106,15 +123,17 @@ export default function WeeklyWorkNewPage() {
   }, [isListening]);
 
   useEffect(() => {
-    window.localStorage.setItem(RECURRING_MEETING_STORAGE_KEY, recurringMeetings);
-  }, [recurringMeetings]);
+    if (!projectId) return;
+    window.localStorage.setItem(getRecurringMeetingStorageKey(projectId), recurringMeetings);
+  }, [recurringMeetings, projectId]);
 
   useEffect(() => {
+    if (!projectId) return;
     window.localStorage.setItem(
-      INCLUDE_RECURRING_STORAGE_KEY,
+      getIncludeRecurringStorageKey(projectId),
       includeRecurringMeetings ? '1' : '0',
     );
-  }, [includeRecurringMeetings]);
+  }, [includeRecurringMeetings, projectId]);
 
   const startVoiceInput = () => {
     const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -174,6 +193,11 @@ export default function WeeklyWorkNewPage() {
       return null;
     }
 
+    if (!projectId) {
+      toast.error('프로젝트를 선택해 주세요.');
+      return null;
+    }
+
     const composedSourceText = composeSourceText(
       trimmed,
       recurringMeetings,
@@ -188,6 +212,7 @@ export default function WeeklyWorkNewPage() {
       weekStartDate,
       overwriteExisting: true,
       planReferenceId: type === 'report' && planReferenceId ? planReferenceId : undefined,
+      projectId,
     };
   };
 
@@ -323,6 +348,19 @@ export default function WeeklyWorkNewPage() {
       <div className={previewResult ? 'grid gap-5 xl:grid-cols-[1fr_1fr]' : 'grid gap-5'}>
         <section className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
+            <Select value={projectId} onValueChange={setProjectId}>
+              <SelectTrigger className="h-8 w-44">
+                <SelectValue placeholder="프로젝트 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             <Tabs value={type} onValueChange={(value) => setType(value as WeeklyType)}>
               <TabsList>
                 <TabsTrigger value="plan">주간 계획</TabsTrigger>

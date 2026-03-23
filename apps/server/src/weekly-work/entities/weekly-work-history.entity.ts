@@ -8,6 +8,7 @@ import {
   Index,
 } from 'typeorm';
 import { User } from '../../auth/entities/user.entity';
+import { WeeklyWorkProject } from './weekly-work-project.entity';
 
 export enum WeeklyWorkEntryType {
   PLAN = 'plan',
@@ -20,7 +21,7 @@ export enum WeeklyWorkInputType {
 }
 
 @Entity('weekly_work_histories')
-@Index('UQ_weekly_work_histories_user_week_type', ['userId', 'weekStartDate', 'type'], {
+@Index('UQ_weekly_work_histories_user_week_type_project', ['userId', 'weekStartDate', 'type', 'projectId'], {
   unique: true,
 })
 export class WeeklyWorkHistory {
@@ -32,6 +33,12 @@ export class WeeklyWorkHistory {
 
   @Column()
   userId: string;
+
+  @ManyToOne(() => WeeklyWorkProject, { onDelete: 'CASCADE' })
+  project: WeeklyWorkProject;
+
+  @Column()
+  projectId: string;
 
   @Column({
     type: 'enum',

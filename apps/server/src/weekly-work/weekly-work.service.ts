@@ -9,7 +9,9 @@ import { FindOptionsWhere, QueryFailedError, Repository } from 'typeorm';
 import { User } from '../auth/entities/user.entity';
 import { ChatService } from '../chat/chat.service';
 import { WeeklyWorkHistory, WeeklyWorkEntryType } from './entities/weekly-work-history.entity';
+import { WeeklyWorkProject } from './entities/weekly-work-project.entity';
 import {
+  CreateWeeklyWorkProjectDto,
   GenerateWeeklyWorkDto,
   UpdateWeeklyHistoryDto,
   WeeklyWorkHistoryQueryDto,
@@ -32,6 +34,8 @@ export class WeeklyWorkService {
   constructor(
     @InjectRepository(WeeklyWorkHistory)
     private readonly historyRepo: Repository<WeeklyWorkHistory>,
+    @InjectRepository(WeeklyWorkProject)
+    private readonly projectRepo: Repository<WeeklyWorkProject>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
     private readonly chatService: ChatService,
@@ -45,8 +49,9 @@ export class WeeklyWorkService {
 
     const previewOnly = dto.previewOnly === true;
     const weekStartDate = this.normalizeWeekStartDate(dto.weekStartDate);
+    const projectId = dto.projectId;
     const existing = await this.historyRepo.findOne({
-      where: { userId, type: dto.type, weekStartDate },
+      where: { userId, type: dto.type, weekStartDate, projectId },
     });
 
     const shouldOverwrite = dto.overwriteExisting !== false;
@@ -85,6 +90,7 @@ export class WeeklyWorkService {
       const preview = new WeeklyWorkHistory();
       preview.id = '';
       preview.userId = userId;
+      preview.projectId = projectId;
       preview.type = dto.type;
       preview.weekStartDate = weekStartDate;
       preview.inputType = dto.inputType;
@@ -105,6 +111,7 @@ export class WeeklyWorkService {
 
     const history = existing || this.historyRepo.create({
       userId,
+      projectId,
       type: dto.type,
       weekStartDate,
     });
@@ -142,6 +149,7 @@ export class WeeklyWorkService {
 
     if (query.type) where.type = query.type;
     if (normalizedWeekStartDate) where.weekStartDate = normalizedWeekStartDate;
+    if (query.projectId) where.projectId = query.projectId;
 
     return this.historyRepo.find({
       where,
@@ -210,6 +218,34 @@ export class WeeklyWorkService {
         isMe: row.userId === currentUserId,
       };
     });
+  }
+
+  async getProjects(): Promise<WeeklyWorkProject[]> {
+    return this.projectRepo.find({ order: { name: 'ASC' } });
+  }
+
+  async createProject(dto: CreateWeeklyWorkProjectDto): Promise<WeeklyWorkProject> {
+    const name = dto.name?.trim();
+    if (!name) {
+      throw new BadRequestException('프로젝트 이름이 비어 있습니다.');
+    }
+
+    const existing = await this.projectRepo.findOne({ where: { name } });
+    if (existing) {
+      throw new ConflictException('같은 이름의 프로젝트가 이미 존재합니다.');
+    }
+
+    const project = this.projectRepo.create({ name });
+    return this.projectRepo.save(project);
+  }
+
+  async deleteProject(projectId: string): Promise<void> {
+    const project = await this.projectRepo.findOne({ where: { id: projectId } });
+    if (!project) {
+      throw new NotFoundException('프로젝트를 찾을 수 없습니다.');
+    }
+
+    await this.projectRepo.remove(project);
   }
 
   async getHistoryOne(userId: string, historyId: string): Promise<WeeklyWorkHistory> {

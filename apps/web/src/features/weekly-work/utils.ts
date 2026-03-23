@@ -1,6 +1,14 @@
 export const RECURRING_MEETING_STORAGE_KEY = 'weekly-recurring-meetings';
 export const INCLUDE_RECURRING_STORAGE_KEY = 'weekly-include-recurring-meetings';
 
+export function getRecurringMeetingStorageKey(projectId: string): string {
+  return `weekly-recurring-meetings:${projectId}`;
+}
+
+export function getIncludeRecurringStorageKey(projectId: string): string {
+  return `weekly-include-recurring-meetings:${projectId}`;
+}
+
 export function getCurrentWeekStartDate(): string {
   return formatDateToYmd(normalizeToWeekStart(new Date()));
 }

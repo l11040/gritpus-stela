@@ -59,6 +59,10 @@ export class GenerateWeeklyWorkDto {
   @IsOptional()
   @IsString()
   markdownOverride?: string;
+
+  @ApiProperty({ description: '프로젝트 ID' })
+  @IsUUID()
+  projectId: string;
 }
 
 export class WeeklyWorkHistoryQueryDto {
@@ -86,6 +90,11 @@ export class WeeklyWorkHistoryQueryDto {
   })
   @IsBoolean()
   includeAllUsers?: boolean;
+
+  @ApiPropertyOptional({ description: '프로젝트 ID' })
+  @IsOptional()
+  @IsUUID()
+  projectId?: string;
 }
 
 export class WeeklyWorkUsersQueryDto {
@@ -119,4 +128,10 @@ export class UpdateWeeklyHistoryDto {
   @ApiProperty({ description: '사용자가 수정한 Markdown 본문' })
   @IsString()
   markdown: string;
+}
+
+export class CreateWeeklyWorkProjectDto {
+  @ApiProperty({ description: '프로젝트 이름' })
+  @IsString()
+  name: string;
 }

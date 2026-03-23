@@ -15,6 +15,36 @@ export function GenerateWeeklyWorkDocs() {
   );
 }
 
+export function GetWeeklyWorkProjectsDocs() {
+  return applyDecorators(
+    ApiOperation({ summary: '주간 업무 프로젝트 목록' }),
+    ApiResponse({ status: 200, description: '조회 성공' }),
+    ApiResponse({ status: 401, description: '인증 실패' }),
+    ApiResponse({ status: 500, description: '서버 내부 오류' }),
+  );
+}
+
+export function CreateWeeklyWorkProjectDocs() {
+  return applyDecorators(
+    ApiOperation({ summary: '주간 업무 프로젝트 생성' }),
+    ApiResponse({ status: 201, description: '생성 성공' }),
+    ApiResponse({ status: 400, description: '입력값 오류' }),
+    ApiResponse({ status: 401, description: '인증 실패' }),
+    ApiResponse({ status: 409, description: '같은 이름의 프로젝트 존재' }),
+    ApiResponse({ status: 500, description: '서버 내부 오류' }),
+  );
+}
+
+export function DeleteWeeklyWorkProjectDocs() {
+  return applyDecorators(
+    ApiOperation({ summary: '주간 업무 프로젝트 삭제' }),
+    ApiResponse({ status: 200, description: '삭제 성공' }),
+    ApiResponse({ status: 401, description: '인증 실패' }),
+    ApiResponse({ status: 404, description: '프로젝트를 찾을 수 없음' }),
+    ApiResponse({ status: 500, description: '서버 내부 오류' }),
+  );
+}
+
 export function GetWeeklyWorkHistoryDocs() {
   return applyDecorators(
     ApiOperation({ summary: '주간 계획/보고 히스토리 목록' }),
@@ -22,6 +52,7 @@ export function GetWeeklyWorkHistoryDocs() {
     ApiQuery({ name: 'weekStartDate', required: false, description: 'YYYY-MM-DD' }),
     ApiQuery({ name: 'userId', required: false, description: '조회 대상 사용자 ID (생략 시 본인)' }),
     ApiQuery({ name: 'includeAllUsers', required: false, description: '전체 사용자 조회 여부 (true/false)' }),
+    ApiQuery({ name: 'projectId', required: false, description: '프로젝트 ID' }),
     ApiResponse({ status: 200, description: '조회 성공' }),
     ApiResponse({ status: 400, description: '쿼리 파라미터 오류' }),
     ApiResponse({ status: 401, description: '인증 실패' }),

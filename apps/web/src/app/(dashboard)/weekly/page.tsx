@@ -27,11 +27,12 @@ import {
   MoreHorizontal,
   Plus,
   RefreshCw,
+  Settings,
   Trash2,
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { WeeklyType, WeeklyWorkHistory, WeeklyWorkUserSummary } from '@/features/weekly-work/types';
+import type { WeeklyType, WeeklyWorkHistory, WeeklyWorkProject, WeeklyWorkUserSummary } from '@/features/weekly-work/types';
 import { useAuth } from '@/providers/auth-provider';
 import { WeekDatePicker } from '@/features/weekly-work/components/week-date-picker';
 import {
@@ -56,9 +57,11 @@ export default function WeeklyWorkHistoryPage() {
 
   const [users, setUsers] = useState<WeeklyWorkUserSummary[]>([]);
   const [histories, setHistories] = useState<WeeklyWorkHistory[]>([]);
+  const [projects, setProjects] = useState<WeeklyWorkProject[]>([]);
 
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [userFilter, setUserFilter] = useState<UserFilter>('all');
+  const [projectFilter, setProjectFilter] = useState<string>('all');
   const [weekStartDate, setWeekStartDate] = useState(getCurrentWeekStartDate());
 
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
@@ -93,6 +96,11 @@ export default function WeeklyWorkHistoryPage() {
     [users],
   );
 
+  const projectNameMap = useMemo(
+    () => new Map(projects.map((p) => [p.id, p.name])),
+    [projects],
+  );
+
   const buildHistoryParams = (): Record<string, string> => {
     const params: Record<string, string> = { weekStartDate };
 
@@ -104,6 +112,10 @@ export default function WeeklyWorkHistoryPage() {
       params.includeAllUsers = 'true';
     } else if (userFilter !== 'me') {
       params.userId = userFilter;
+    }
+
+    if (projectFilter !== 'all') {
+      params.projectId = projectFilter;
     }
 
     return params;
@@ -133,10 +145,18 @@ export default function WeeklyWorkHistoryPage() {
     });
   };
 
+  const loadProjects = async () => {
+    const rows = await fetcher<WeeklyWorkProject[]>({
+      url: '/weekly-work/projects',
+      method: 'GET',
+    });
+    setProjects(rows);
+  };
+
   const loadMain = async () => {
     setIsLoading(true);
     try {
-      await Promise.all([loadUsers(), loadHistories()]);
+      await Promise.all([loadUsers(), loadHistories(), loadProjects()]);
     } finally {
       setIsLoading(false);
     }
@@ -146,7 +166,7 @@ export default function WeeklyWorkHistoryPage() {
     loadMain().catch(() => {
       toast.error('주간 업무 목록을 불러오지 못했습니다.');
     });
-  }, [typeFilter, userFilter, weekStartDate]);
+  }, [typeFilter, userFilter, projectFilter, weekStartDate]);
 
   useEffect(() => {
     if (!selectedHistory) {
@@ -292,6 +312,12 @@ export default function WeeklyWorkHistoryPage() {
             <RefreshCw className="size-4" />
             새로고침
           </Button>
+          <Button asChild variant="outline">
+            <Link href="/weekly/settings">
+              <Settings className="size-4" />
+              설정
+            </Link>
+          </Button>
           <Button asChild>
             <Link href="/weekly/new">
               <Plus className="size-4" />
@@ -302,7 +328,7 @@ export default function WeeklyWorkHistoryPage() {
       </div>
 
       <section className="space-y-3">
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.8fr)_auto]">
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.8fr)_auto]">
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">유저</Label>
             <Select value={userFilter} onValueChange={(value) => setUserFilter(value)}>
@@ -315,6 +341,23 @@ export default function WeeklyWorkHistoryPage() {
                 {userFilterOptions.map((entry) => (
                   <SelectItem key={entry.userId} value={entry.userId}>
                     {entry.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">프로젝트</Label>
+            <Select value={projectFilter} onValueChange={(value) => setProjectFilter(value)}>
+              <SelectTrigger className="h-9 w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체 프로젝트</SelectItem>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -372,6 +415,7 @@ export default function WeeklyWorkHistoryPage() {
               className="h-9"
               onClick={() => {
                 setUserFilter('all');
+                setProjectFilter('all');
                 setTypeFilter('all');
                 setWeekStartDate(getCurrentWeekStartDate());
               }}
@@ -416,6 +460,9 @@ export default function WeeklyWorkHistoryPage() {
                       <Badge variant={typeBadgeVariant(item.type)} className="h-5 px-2 text-[10px]">
                         {typeBadgeLabel(item.type)}
                       </Badge>
+                      <span className="text-[10px] text-muted-foreground">
+                        {projectNameMap.get(item.projectId) || ''}
+                      </span>
                       <span className="text-xs font-medium">{ownerName}</span>
                       <span className="text-[10px] text-muted-foreground">{item.weekStartDate}</span>
                     </div>
